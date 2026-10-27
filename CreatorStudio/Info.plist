@@ -26,6 +26,8 @@
 	<string>Микрофон нужен, чтобы записывать звук.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Готовые видео сохраняются в галерею.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Съёмки и публикации добавляются в твой календарь.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Распознавание речи двигает суфлёр, пока ты говоришь.</string>
 	<key>UILaunchScreen</key>

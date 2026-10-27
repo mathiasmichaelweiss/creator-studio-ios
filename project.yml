@@ -30,6 +30,7 @@ targets:
         NSCameraUsageDescription: Камера нужна, чтобы записывать видео.
         NSMicrophoneUsageDescription: Микрофон нужен, чтобы записывать звук.
         NSPhotoLibraryAddUsageDescription: Готовые видео сохраняются в галерею.
+        NSCalendarsWriteOnlyAccessUsageDescription: Съёмки и публикации добавляются в твой календарь.
         NSSpeechRecognitionUsageDescription: Распознавание речи двигает суфлёр, пока ты говоришь.
         UIAppFonts: [Inter-Regular.ttf, Inter-Medium.ttf, Inter-SemiBold.ttf, Inter-Bold.ttf]
     settings:

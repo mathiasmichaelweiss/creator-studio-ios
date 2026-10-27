@@ -18,6 +18,19 @@ enum NotionParser {
         }
     }
 
+    static func dateStart(_ property: Any?) -> String? {
+        guard let p = property as? JSON, let d = p["date"] as? JSON, let start = d["start"] as? String,
+              !start.isEmpty else { return nil }
+        return start
+    }
+
+    static func number(_ property: Any?) -> Double? {
+        guard let p = property as? JSON else { return nil }
+        if let n = p["number"] as? Double { return n }
+        if let n = p["number"] as? Int { return Double(n) }
+        return nil
+    }
+
     static func relationIds(_ property: Any?) -> [String] {
         guard let p = property as? JSON, let rel = p["relation"] as? [JSON] else { return [] }
         return rel.compactMap { $0["id"] as? String }
@@ -40,7 +53,9 @@ enum NotionParser {
             status: plainText(props["Статус"]),
             studioId: plainText(props["ID студии"]),
             body: ScriptBody(hook: plainText(props["Хук"]), sections: [], cta: plainText(props["CTA"])),
-            variantIds: relationIds(props["Вариации"])
+            variantIds: relationIds(props["Вариации"]),
+            notionDate: dateStart(props["Дата"]),
+            notionTime: plainText(props["Время"]).isEmpty ? nil : plainText(props["Время"])
         )
     }
 

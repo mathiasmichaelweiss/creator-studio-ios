@@ -40,6 +40,7 @@ final class ScriptStore: ObservableObject {
     static func download(client: NotionClient) async throws -> [Script] {
         let scriptPages = try await client.queryAll(dataSource: NotionConfig.scriptsDataSource)
         let variantPages = try await client.queryAll(dataSource: NotionConfig.variantsDataSource)
+        let forecastPages = try await client.queryAll(dataSource: NotionConfig.forecastsDataSource)
 
         var scripts = scriptPages.compactMap(NotionParser.script(page:))
         var variants = variantPages.compactMap(NotionParser.variant(page:))
@@ -51,12 +52,23 @@ final class ScriptStore: ObservableObject {
             variants[i].variant.body.sections =
                 NotionParser.sections(blocks: try await client.blocks(of: variants[i].variant.id))
         }
-        return merge(scripts: scripts, variants: variants)
+        var forecasts: [(scriptId: String, forecast: Forecast)] = []
+        for page in forecastPages {
+            guard let id = page["id"] as? String else { continue }
+            let blocks = try await client.blocks(of: id)
+            if let f = ForecastParser.forecast(page: page, blocks: blocks) { forecasts.append(f) }
+        }
+        return merge(scripts: scripts, variants: variants, forecasts: forecasts)
     }
 
     /// Привязка вариаций к сценариям и порядок списка.
-    static func merge(scripts: [Script], variants: [(scriptId: String, variant: ScriptVariant)]) -> [Script] {
+    static func merge(scripts: [Script], variants: [(scriptId: String, variant: ScriptVariant)],
+                      forecasts: [(scriptId: String, forecast: Forecast)] = []) -> [Script] {
         var result = scripts
+        for f in forecasts {
+            let key = normalize(f.scriptId)
+            if let i = result.firstIndex(where: { normalize($0.id) == key }) { result[i].forecast = f.forecast }
+        }
         for v in variants {
             let key = normalize(v.scriptId)
             if let i = result.firstIndex(where: { normalize($0.id) == key }) {

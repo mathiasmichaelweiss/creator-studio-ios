@@ -9,6 +9,8 @@ import SwiftUI
 struct PrompterView: View {
     @EnvironmentObject var settings: PrompterSettings
     @ObservedObject var engine: PrompterEngine
+    @ObservedObject var voice: SpeechFollower
+    @State private var textWidth: CGFloat = 0
     let height: CGFloat
 
     /// Где стоит линия чтения, доля высоты окна суфлёра.
@@ -29,6 +31,8 @@ struct PrompterView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: geo.size.width, alignment: .topLeading)
                 .offset(y: lineY - CGFloat(engine.offset))
+                .onAppear { textWidth = geo.size.width }
+                .onChange(of: geo.size.width) { _, w in textWidth = w }
                 
         }
         .padding(.horizontal, 18)
@@ -48,6 +52,13 @@ struct PrompterView: View {
             engine.nudge(by: -v.translation.height / 8)
         })
         .accessibilityLabel("Текст суфлёра")
+        .onChange(of: voice.location) { _, loc in
+            // По голосу: строка со сказанным словом подъезжает к стрелке.
+            guard settings.scrollMode == .voice, let loc else { return }
+            let y = PrompterLayout.lineTop(of: loc, in: settings.script, fontSize: fs,
+                                           lineSpacing: fs * 0.25, width: textWidth)
+            engine.follow(to: Double(y))
+        }
     }
 }
 

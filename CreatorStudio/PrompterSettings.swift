@@ -12,6 +12,8 @@ final class PrompterSettings: ObservableObject {
     @AppStorage("countdown") var countdown: Int = 3
     /// Режим чтения: суфлёр (текст едет) или карточки (абзац за абзацем, листаешь сам).
     @AppStorage("mode") var mode: ReadingMode = .prompter
+    /// Как едет суфлёр: с постоянной скоростью или за голосом.
+    @AppStorage("scrollMode") var scrollMode: ScrollMode = .speed
     /// Тема и размер текста, как переключатели на razberemsya.de.
     @AppStorage("theme") var theme: AppTheme = .system
     @AppStorage("textScale") var textScale: TextScale = .normal
@@ -31,4 +33,10 @@ enum ReadingMode: String, CaseIterable, Identifiable {
     case prompter, cards
     var id: String { rawValue }
     var title: String { self == .prompter ? "Суфлёр" : "Карточки" }
+}
+
+enum ScrollMode: String, CaseIterable, Identifiable {
+    case speed, voice
+    var id: String { rawValue }
+    var title: String { self == .speed ? "По скорости" : "По голосу" }
 }

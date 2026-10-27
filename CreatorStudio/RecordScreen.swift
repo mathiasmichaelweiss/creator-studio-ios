@@ -9,6 +9,7 @@ struct RecordScreen: View {
     @State private var showScript = false
     @State private var showSettings = false
     @State private var permissionDenied = false
+    @State private var cardIndex = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -17,8 +18,14 @@ struct RecordScreen: View {
                 if settings.showSafeZone { SafeZoneOverlay().ignoresSafeArea() }
 
                 VStack(spacing: 0) {
-                    PrompterView(engine: engine, height: geo.size.height * 0.30)
-                        .padding(.horizontal, 28)
+                    if settings.mode == .prompter {
+                        PrompterView(engine: engine, height: geo.size.height * 0.30)
+                            .padding(.horizontal, 28)
+                    } else {
+                        CardsView(index: $cardIndex, height: geo.size.height * 0.34)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 54)
+                    }
                     Spacer()
                     controls
                 }
@@ -115,16 +122,19 @@ struct RecordScreen: View {
         switch recorder.state {
         case .idle:
             engine.reset(); engine.speed = settings.speed
-            runCountdown { recorder.start(); engine.start() }
+            runCountdown { recorder.start(); if prompting { engine.start() } }
         case .recording:
             // Одна кнопка: стоп записи и стоп текста одновременно.
             recorder.pause(); engine.stop()
         case .paused:
-            runCountdown { recorder.resume(); engine.start() }
+            runCountdown { recorder.resume(); if prompting { engine.start() } }
         case .finishing:
             break
         }
     }
+
+    /// Текст едет только в режиме суфлёра. В карточках листаешь сам.
+    private var prompting: Bool { settings.mode == .prompter }
 
     private func stop() {
         engine.stop()

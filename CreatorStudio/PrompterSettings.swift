@@ -8,6 +8,8 @@ final class PrompterSettings: ObservableObject {
     @AppStorage("fontSize") var fontSize: Double = 30
     @AppStorage("showSafeZone") var showSafeZone: Bool = true
     @AppStorage("countdown") var countdown: Int = 3
+    /// Режим чтения: суфлёр (текст едет) или карточки (абзац за абзацем, листаешь сам).
+    @AppStorage("mode") var mode: ReadingMode = .prompter
 
     static let sample = """
     Вставь сюда текст сценария.
@@ -15,4 +17,10 @@ final class PrompterSettings: ObservableObject {
     Суфлёр крутится, пока идёт запись. Пауза одной кнопкой останавливает и запись, и текст. \
     Play продолжает в тот же файл после отсчёта.
     """
+}
+
+enum ReadingMode: String, CaseIterable, Identifiable {
+    case prompter, cards
+    var id: String { rawValue }
+    var title: String { self == .prompter ? "Суфлёр" : "Карточки" }
 }

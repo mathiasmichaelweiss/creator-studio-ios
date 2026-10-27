@@ -31,6 +31,16 @@ struct SettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("Режим", selection: $settings.mode) {
+                        ForEach(ReadingMode.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: { Text("Режим чтения") } footer: {
+                    Text(settings.mode == .prompter
+                         ? "Текст сам едет во время записи. Читаешь дословно."
+                         : "Один абзац на экране. Прочитал, нажал запись, пересказал своими словами, пауза, следующая карточка. Абзацы раздели пустой строкой.")
+                }
                 Section("Суфлёр") {
                     VStack(alignment: .leading) {
                         Text("Скорость: \(Int(settings.speed))")

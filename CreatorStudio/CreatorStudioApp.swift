@@ -6,9 +6,19 @@ struct CreatorStudioApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RecordScreen()
+            RootView()
                 .environmentObject(settings)
-                .preferredColorScheme(.dark)
         }
+    }
+}
+
+/// Применяет тему и размер текста ко всему приложению.
+private struct RootView: View {
+    @EnvironmentObject var settings: PrompterSettings
+    var body: some View {
+        RecordScreen()
+            .preferredColorScheme(settings.theme.scheme)
+            .dynamicTypeSize(settings.textScale.dynamicType)
+            .tint(Palette.brand)
     }
 }

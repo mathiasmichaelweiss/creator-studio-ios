@@ -10,6 +10,12 @@ final class PrompterSettings: ObservableObject {
     @AppStorage("countdown") var countdown: Int = 3
     /// Режим чтения: суфлёр (текст едет) или карточки (абзац за абзацем, листаешь сам).
     @AppStorage("mode") var mode: ReadingMode = .prompter
+    /// Тема и размер текста, как переключатели на razberemsya.de.
+    @AppStorage("theme") var theme: AppTheme = .system
+    @AppStorage("textScale") var textScale: TextScale = .normal
+
+    /// Итоговый размер текста суфлёра и карточек с учётом «Обычный / Крупный».
+    var prompterFontSize: Double { fontSize * textScale.prompterFactor }
 
     static let sample = """
     Вставь сюда текст сценария.

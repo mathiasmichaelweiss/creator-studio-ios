@@ -12,20 +12,22 @@ struct CardsView: View {
     var body: some View {
         let list = cards
         let i = Paragraphs.clamp(index, count: list.count)
-        let fs = CGFloat(settings.fontSize)
+        let fs = CGFloat(settings.prompterFontSize)
 
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(list.isEmpty ? "Нет текста" : "Карточка \(i + 1) из \(list.count)")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.accent)
+                    .font(Typo.inter(13, .semibold, relativeTo: .footnote))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .foregroundStyle(Palette.ink2)
+                    .background(Palette.chip, in: Capsule())
                 Spacer()
                 ProgressDots(count: list.count, current: i)
             }
             ScrollView {
                 Text(list.isEmpty ? "Вставь сценарий кнопкой слева внизу. Абзацы раздели пустой строкой." : list[i])
-                    .font(.system(size: fs, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(Typo.interFixed(fs, .semibold))
+                    .foregroundStyle(Palette.ink)
                     .lineSpacing(fs * 0.2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .id(i)
@@ -39,9 +41,9 @@ struct CardsView: View {
                 navButton("chevron.right", label: "Следующая карточка", enabled: i < list.count - 1) { go(i + 1, count: list.count) }
             }
         }
-        .padding(16)
+        .padding(18)
         .frame(height: height)
-        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 22))
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 30).onEnded { v in
             if v.translation.width < -40 { go(i + 1, count: list.count) }
@@ -59,22 +61,24 @@ struct CardsView: View {
 
     private func navButton(_ icon: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
-                .frame(width: 54, height: 44)
-                .background(enabled ? Theme.accent : Color.white.opacity(0.15), in: Capsule())
+            Image(systemName: icon).font(.system(size: 18, weight: .bold))
+                .foregroundStyle(enabled ? Palette.btnInk : Palette.ink3)
+                .frame(width: 56, height: 44)
+                .background(enabled ? Palette.btn : Palette.chip, in: Capsule())
         }
         .disabled(!enabled)
         .accessibilityLabel(label)
     }
 }
 
+/// Точки прогресса как под каруселью «Важное сегодня» на сайте.
 private struct ProgressDots: View {
     let count: Int
     let current: Int
     var body: some View {
         HStack(spacing: 5) {
             ForEach(0..<min(count, 12), id: \.self) { k in
-                Capsule().fill(k == current ? Theme.accent : Color.white.opacity(0.3))
+                Capsule().fill(k == current ? Palette.ink : Palette.line)
                     .frame(width: k == current ? 16 : 6, height: 6)
             }
         }

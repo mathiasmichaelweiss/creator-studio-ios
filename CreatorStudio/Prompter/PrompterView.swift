@@ -15,32 +15,33 @@ struct PrompterView: View {
     static let readingLine: CGFloat = 0.35
 
     var body: some View {
-        let fs = CGFloat(settings.fontSize)
+        let fs = CGFloat(settings.prompterFontSize)
         let lineY: CGFloat = height * Self.readingLine
         let lineH: CGFloat = fs * 1.25
 
         GeometryReader { geo in
             Text(settings.script)
-                .font(.system(size: fs, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(Typo.interFixed(fs, .semibold))
+                .foregroundStyle(Palette.ink)
                 .lineSpacing(fs * 0.25)
                 .multilineTextAlignment(.leading)
                 // Текст любой длины: высоту не ограничиваем, иначе SwiftUI обрежет его «…».
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: geo.size.width, alignment: .topLeading)
                 .offset(y: lineY - CGFloat(engine.offset))
-                .shadow(color: .black.opacity(0.8), radius: 3)
+                
         }
+        .padding(.horizontal, 18)
         .frame(height: height)
         .clipped()
         .mask(ReadingMask(lineY: lineY, lineHeight: lineH, height: height))
-        .background(LinearGradient(colors: [.black.opacity(0.65), .black.opacity(0.35)], startPoint: .top, endPoint: .bottom))
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(alignment: .topLeading) {
             // Метка-стрелка слева от строки, которую читаешь сейчас.
             Image(systemName: "arrowtriangle.right.fill")
                 .font(.system(size: fs * 0.55))
                 .foregroundStyle(Theme.accent)
-                .offset(x: -fs * 0.75, y: lineY + lineH * 0.5 - fs * 0.3)
+                .offset(x: 2, y: lineY + lineH * 0.5 - fs * 0.3)
                 .accessibilityHidden(true)
         }
         .gesture(DragGesture().onChanged { v in

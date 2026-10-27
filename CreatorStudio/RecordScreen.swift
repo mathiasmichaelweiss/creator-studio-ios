@@ -32,9 +32,10 @@ struct RecordScreen: View {
 
                 if let countdown {
                     Text("\(countdown)")
-                        .font(.system(size: 140, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .shadow(radius: 12)
+                        .font(Typo.interFixed(120, .bold))
+                        .foregroundStyle(Palette.ink)
+                        .frame(width: 180, height: 180)
+                        .background(Theme.panel, in: Circle())
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityLabel("Отсчёт \(countdown)")
                 }
@@ -61,46 +62,69 @@ struct RecordScreen: View {
     // MARK: Кнопки
 
     private var controls: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Text(timeString(recorder.elapsed))
-                    .font(.system(.body, design: .monospaced).weight(.semibold))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(recorder.state == .recording ? Color.red.opacity(0.85) : Theme.panel, in: Capsule())
-                Spacer()
-                Text(recorder.formatDescription).font(.caption).foregroundStyle(.white.opacity(0.8))
+        VStack(spacing: 12) {
+            if recorder.state == .idle {
+                ChipPicker(options: ReadingMode.allCases, selection: $settings.mode) { $0.title }
+                    .frame(maxWidth: 260)
             }
-            HStack(spacing: 22) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    if recorder.state == .recording { Circle().fill(Palette.brand).frame(width: 8, height: 8) }
+                    Text(timeString(recorder.elapsed))
+                        .font(Typo.inter(15, .semibold).monospacedDigit())
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .foregroundStyle(recorder.state == .recording ? Color.white : Palette.ink)
+                .background(recorder.state == .recording ? AnyShapeStyle(Palette.brand) : AnyShapeStyle(Theme.panel), in: Capsule())
+                if !recorder.markers.isEmpty {
+                    Text("Повторов: \(recorder.markers.count)")
+                        .font(Typo.inter(13, .medium))
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .foregroundStyle(Palette.ink)
+                        .background(Theme.panel, in: Capsule())
+                }
+                Spacer()
+                Text(recorder.formatDescription)
+                    .font(Typo.inter(12, .medium))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .foregroundStyle(Palette.ink2)
+                    .background(Theme.panel, in: Capsule())
+            }
+            HStack {
                 circleButton("text.alignleft", label: "Сценарий") { showScript = true }
                     .disabled(recorder.state != .idle)
+                Spacer()
                 circleButton("arrow.uturn.backward", label: "Повтор") { recorder.markRetake() }
                     .disabled(recorder.state == .idle)
+                Spacer()
                 mainButton
+                Spacer()
                 circleButton("stop.fill", label: "Стоп") { stop() }
                     .disabled(recorder.state == .idle || recorder.state == .finishing)
+                Spacer()
                 circleButton("slider.horizontal.3", label: "Настройки") { showSettings = true }
                     .disabled(recorder.state != .idle)
             }
-            if !recorder.markers.isEmpty {
-                Text("Повторов: \(recorder.markers.count)").font(.caption).foregroundStyle(.white.opacity(0.8))
-            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: Radius.block, style: .continuous))
         }
-        .padding(.horizontal, 20).padding(.bottom, 24)
+        .padding(.horizontal, 16).padding(.bottom, 18)
     }
 
     private var mainButton: some View {
         Button(action: mainTap) {
             ZStack {
-                Circle().stroke(.white, lineWidth: 4).frame(width: 78, height: 78)
+                Circle().stroke(Palette.ink, lineWidth: 3).frame(width: 76, height: 76)
                 switch recorder.state {
                 case .recording:
-                    Image(systemName: "pause.fill").font(.system(size: 30)).foregroundStyle(.white)
+                    Image(systemName: "pause.fill").font(.system(size: 28, weight: .bold)).foregroundStyle(Palette.ink)
                 case .paused:
-                    Image(systemName: "play.fill").font(.system(size: 30)).foregroundStyle(Theme.accent)
+                    Palette.brandGradient.frame(width: 62, height: 62).clipShape(Circle())
+                        .overlay(Image(systemName: "play.fill").font(.system(size: 24, weight: .bold)).foregroundStyle(.white))
                 case .finishing:
-                    ProgressView().tint(.white)
+                    ProgressView().tint(Palette.ink)
                 case .idle:
-                    Circle().fill(Color.red).frame(width: 62, height: 62)
+                    Palette.brandGradient.frame(width: 62, height: 62).clipShape(Circle())
                 }
             }
         }
@@ -110,9 +134,12 @@ struct RecordScreen: View {
 
     private func circleButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
-                .frame(width: 48, height: 48).background(Theme.panel, in: Circle())
+            Image(systemName: icon).font(.system(size: 17, weight: .semibold))
+                .frame(width: 46, height: 46)
+                .foregroundStyle(Palette.ink)
+                .background(Palette.chip, in: Circle())
         }
+        .buttonStyle(DimWhenDisabled())
         .accessibilityLabel(label)
     }
 
@@ -167,27 +194,56 @@ struct RecordScreen: View {
     }
 }
 
+/// Кнопка бледнеет, когда недоступна (иначе неясно, почему не нажимается).
+private struct DimWhenDisabled: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.35)
+    }
+}
+
 /// После сохранения: ролик в галерее и список маркеров «повтор».
 private struct SavedSheet: View {
     let markers: [TimeInterval]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section { Label("Видео сохранено в галерею", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
-                if !markers.isEmpty {
-                    Section("Метки «повтор»: здесь были оговорки") {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark").font(.system(size: 15, weight: .bold))
+                    .frame(width: 30, height: 30)
+                    .foregroundStyle(Palette.okInk)
+                    .background(Palette.okBg, in: Circle())
+                Text("Видео сохранено в галерею").font(Typo.inter(18, .semibold))
+            }
+            if !markers.isEmpty {
+                Text("Метки «повтор»: здесь были оговорки")
+                    .font(Typo.inter(14, .medium)).foregroundStyle(Palette.ink2)
+                ScrollView {
+                    VStack(spacing: 8) {
                         ForEach(Array(markers.enumerated()), id: \.offset) { i, t in
-                            Text("\(i + 1). \(String(format: "%02d:%02d", Int(t) / 60, Int(t) % 60))")
-                                .font(.system(.body, design: .monospaced))
+                            HStack {
+                                Text("\(i + 1)").font(Typo.inter(14, .semibold)).foregroundStyle(Palette.ink3)
+                                Text(String(format: "%02d:%02d", Int(t) / 60, Int(t) % 60))
+                                    .font(Typo.inter(16, .semibold).monospacedDigit())
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
                         }
                     }
                 }
             }
-            .navigationTitle("Готово")
-            .toolbar { Button("Закрыть") { dismiss() } }
+            Spacer(minLength: 0)
+            Button("Закрыть") { dismiss() }
+                .buttonStyle(PillButtonStyle())
+                .frame(maxWidth: .infinity)
         }
+        .foregroundStyle(Palette.ink)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Palette.bg)
         .presentationDetents([.medium])
     }
 }

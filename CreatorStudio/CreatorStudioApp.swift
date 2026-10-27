@@ -3,11 +3,13 @@ import SwiftUI
 @main
 struct CreatorStudioApp: App {
     @StateObject private var settings = PrompterSettings()
+    @StateObject private var scripts = ScriptStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(settings)
+                .environmentObject(scripts)
         }
     }
 }

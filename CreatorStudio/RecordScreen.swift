@@ -43,7 +43,7 @@ struct RecordScreen: View {
         }
         .task { await setup() }
         .onChange(of: settings.speed) { _, v in engine.speed = v }
-        .sheet(isPresented: $showScript) { ScriptEditor() }
+        .sheet(isPresented: $showScript) { ScriptPicker() }
         .sheet(isPresented: $showSettings) { SettingsSheet() }
         .alert("Ошибка", isPresented: Binding(get: { recorder.lastError != nil }, set: { if !$0 { recorder.lastError = nil } })) {
             Button("Ок", role: .cancel) {}
@@ -63,6 +63,15 @@ struct RecordScreen: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
+            if recorder.state == .idle, !settings.scriptTitle.isEmpty {
+                Text(settings.scriptTitle)
+                    .font(Typo.inter(13, .semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .foregroundStyle(Palette.ink)
+                    .background(Theme.panel, in: Capsule())
+                    .accessibilityLabel("Сценарий: \(settings.scriptTitle)")
+            }
             if recorder.state == .idle {
                 ChipPicker(options: ReadingMode.allCases, selection: $settings.mode) { $0.title }
                     .frame(maxWidth: 260)

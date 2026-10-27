@@ -6,15 +6,16 @@ struct ScriptPicker: View {
     @EnvironmentObject var store: ScriptStore
     @Environment(\.dismiss) private var dismiss
     @State private var filter: StatusFilter = .ready
+    @State private var tab: StudioTab = .scripts
     @State private var showEditor = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    SheetHeader(title: "Сценарии") { dismiss() }
+                    SheetHeader(title: "Студия") { dismiss() }
+                    ChipPicker(options: StudioTab.allCases, selection: $tab) { $0.title }
                     syncRow
-                    ChipPicker(options: StatusFilter.allCases, selection: $filter) { $0.title }
                     if let error = store.error {
                         Text(error)
                             .font(Typo.inter(14, relativeTo: .footnote))
@@ -23,22 +24,30 @@ struct ScriptPicker: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Palette.mark, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
                     }
-                    let list = filter.apply(store.scripts)
-                    if list.isEmpty {
-                        Text(store.scripts.isEmpty
-                             ? "Пока пусто. Добавь ключ Notion в настройках и нажми «Обновить»."
-                             : "В этом статусе ничего нет.")
-                            .font(Typo.inter(15))
-                            .foregroundStyle(Palette.ink2)
-                            .padding(.top, 8)
+                    switch tab {
+                    case .scripts:
+                        ChipPicker(options: StatusFilter.allCases, selection: $filter) { $0.title }
+                        let list = filter.apply(store.scripts)
+                        if list.isEmpty {
+                            Text(store.scripts.isEmpty
+                                 ? "Пока пусто. Добавь ключ Notion в настройках и нажми «Обновить»."
+                                 : "В этом статусе ничего нет.")
+                                .font(Typo.inter(15))
+                                .foregroundStyle(Palette.ink2)
+                                .padding(.top, 8)
+                        }
+                        ForEach(list) { script in
+                            NavigationLink(value: script) { ScriptRow(script: script) }
+                                .buttonStyle(.plain)
+                        }
+                        Button("Свой текст") { settings.scriptTitle = ""; showEditor = true }
+                            .buttonStyle(PillButtonStyle(prominent: false))
+                            .padding(.top, 6)
+                    case .plan:
+                        PlanSection()
+                    case .forecasts:
+                        ForecastSection()
                     }
-                    ForEach(list) { script in
-                        NavigationLink(value: script) { ScriptRow(script: script) }
-                            .buttonStyle(.plain)
-                    }
-                    Button("Свой текст") { settings.scriptTitle = ""; showEditor = true }
-                        .buttonStyle(PillButtonStyle(prominent: false))
-                        .padding(.top, 6)
                 }
                 .padding(20)
             }
@@ -50,6 +59,9 @@ struct ScriptPicker: View {
                     settings.scriptTitle = title
                     dismiss()
                 }
+            }
+            .navigationDestination(for: ForecastRoute.self) { route in
+                ForecastDetail(scriptId: route.scriptId)
             }
             .toolbar(.hidden, for: .navigationBar)
         }
@@ -82,6 +94,14 @@ struct ScriptPicker: View {
         f.locale = Locale(identifier: "ru_RU")
         f.dateFormat = "d MMM, HH:mm"
         return "Обновлено \(f.string(from: d)) · \(store.scripts.count)"
+    }
+}
+
+enum StudioTab: String, CaseIterable, Identifiable {
+    case scripts, plan, forecasts
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .scripts: "Сценарии"; case .plan: "План"; case .forecasts: "Прогнозы" }
     }
 }
 

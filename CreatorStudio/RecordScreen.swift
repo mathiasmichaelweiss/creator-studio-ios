@@ -100,7 +100,7 @@ struct RecordScreen: View {
                     .background(Theme.panel, in: Capsule())
             }
             HStack {
-                circleButton("text.alignleft", label: "Сценарий") { showScript = true }
+                circleButton("text.alignleft", label: "Студия: сценарии, план, прогнозы") { showScript = true }
                     .disabled(recorder.state != .idle)
                 Spacer()
                 circleButton("arrow.uturn.backward", label: "Повтор") { recorder.markRetake() }

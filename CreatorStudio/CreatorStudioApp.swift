@@ -4,12 +4,14 @@ import SwiftUI
 struct CreatorStudioApp: App {
     @StateObject private var settings = PrompterSettings()
     @StateObject private var scripts = ScriptStore()
+    @StateObject private var plan = PlanStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(scripts)
+                .environmentObject(plan)
         }
     }
 }

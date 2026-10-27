@@ -27,6 +27,8 @@ final class Recorder: NSObject, ObservableObject {
     private var timeline = PausableTimeline()
     private var sessionStarted = false
     private var lastVideoPTS: CMTime = .invalid
+    /// Время первого кадра в файле: от него считается таймер записи.
+    private var fileStart: CMTime = .zero
     private var outputURL: URL?
     private var videoSize = CGSize(width: 1080, height: 1920)
     private var isWriting = false
@@ -221,6 +223,7 @@ extension Recorder: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudio
         if !sessionStarted {
             guard isVideo else { return } // начинаем файл с кадра, не со звука
             writer.startSession(atSourceTime: mapped)
+            fileStart = mapped
             sessionStarted = true
         }
         guard let retimed = Self.retime(sampleBuffer, to: mapped) else { return }
@@ -228,7 +231,7 @@ extension Recorder: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudio
         if isVideo {
             if let v = videoInput, v.isReadyForMoreMediaData, mapped > lastVideoPTS || !lastVideoPTS.isValid {
                 v.append(retimed); lastVideoPTS = mapped
-                let seconds = mapped.seconds
+                let seconds = CMTimeSubtract(mapped, fileStart).seconds
                 DispatchQueue.main.async { self.elapsed = seconds }
             }
         } else if let a = audioInput, a.isReadyForMoreMediaData {

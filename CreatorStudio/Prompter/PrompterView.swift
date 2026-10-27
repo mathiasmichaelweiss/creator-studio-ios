@@ -25,6 +25,8 @@ struct PrompterView: View {
                 .foregroundStyle(.white)
                 .lineSpacing(fs * 0.25)
                 .multilineTextAlignment(.leading)
+                // Текст любой длины: высоту не ограничиваем, иначе SwiftUI обрежет его «…».
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(width: geo.size.width, alignment: .topLeading)
                 .offset(y: lineY - CGFloat(engine.offset))
                 .shadow(color: .black.opacity(0.8), radius: 3)

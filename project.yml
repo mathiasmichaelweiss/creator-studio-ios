@@ -12,7 +12,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Automatic
     # Команду (Personal Team) Xcode подставит сам после входа в Apple ID
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: R6R7Y8SX4A
 targets:
   CreatorStudio:
     type: application

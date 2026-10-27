@@ -79,15 +79,17 @@ final class Recorder: NSObject, ObservableObject {
         }
     }
 
-    /// Самый большой формат фронтальной камеры, при равенстве с большим fps (до 60).
+    /// Лучший видеоформат 16:9 фронтальной камеры: сначала максимум fps (до 60), потом разрешение.
+    /// Фотоформаты 4:3 (например 4032×3024) не берём: они не дают вертикальное видео под Reels.
     private static func applyBestFormat(to device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, fps: Double)? {
         let candidates = device.formats.compactMap { f -> (AVCaptureDevice.Format, Int32, Double)? in
             let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
+            guard FormatPicker.isSixteenByNine(width: d.width, height: d.height) else { return nil }
             let maxFPS = f.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
             guard maxFPS >= 24 else { return nil }
             return (f, d.width * d.height, min(maxFPS, 60))
         }
-        guard let best = candidates.max(by: { ($0.1, $0.2) < ($1.1, $1.2) }) else { return nil }
+        guard let best = candidates.max(by: { FormatPicker.isWorse(($0.2, $0.1), than: ($1.2, $1.1)) }) else { return nil }
         do {
             try device.lockForConfiguration()
             device.activeFormat = best.0

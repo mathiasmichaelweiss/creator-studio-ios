@@ -14,7 +14,7 @@ struct SafeZoneOverlay: View {
                               width: w * (1 - Self.right),
                               height: h * (1 - Self.top - Self.bottom))
             Path { $0.addRect(rect) }
-                .stroke(Theme.lilac.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [8, 6]))
+                .stroke(Theme.safeZone.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, dash: [8, 6]))
         }
         .allowsHitTesting(false)
     }

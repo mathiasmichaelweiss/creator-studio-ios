@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Цвета экосистемы (как на разберемся.de). Точные токены сайта переносятся отдельной задачей.
+/// Короткие алиасы на токены сайта (см. Design/Tokens.swift).
 enum Theme {
-    static let accent = Color(red: 0xF2 / 255, green: 0x6B / 255, blue: 0x1D / 255)
-    static let lilac = Color(red: 0x8B / 255, green: 0x7C / 255, blue: 0xF6 / 255)
-    static let panel = Color.black.opacity(0.55)
+    static let accent = Palette.brand
+    /// Подложка панелей поверх видео: цвет поверхности сайта, полупрозрачный.
+    static let panel = Palette.surface.opacity(0.86)
+    static let safeZone = Palette.ink3
 }

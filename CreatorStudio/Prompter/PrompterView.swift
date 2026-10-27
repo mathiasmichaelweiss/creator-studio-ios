@@ -15,17 +15,18 @@ struct PrompterView: View {
     static let readingLine: CGFloat = 0.35
 
     var body: some View {
-        let lineY = height * Self.readingLine
-        let lineH = settings.fontSize * 1.25
+        let fs = CGFloat(settings.fontSize)
+        let lineY: CGFloat = height * Self.readingLine
+        let lineH: CGFloat = fs * 1.25
 
         GeometryReader { geo in
             Text(settings.script)
-                .font(.system(size: settings.fontSize, weight: .semibold))
+                .font(.system(size: fs, weight: .semibold))
                 .foregroundStyle(.white)
-                .lineSpacing(settings.fontSize * 0.25)
+                .lineSpacing(fs * 0.25)
                 .multilineTextAlignment(.leading)
                 .frame(width: geo.size.width, alignment: .topLeading)
-                .offset(y: lineY - engine.offset)
+                .offset(y: lineY - CGFloat(engine.offset))
                 .shadow(color: .black.opacity(0.8), radius: 3)
         }
         .frame(height: height)
@@ -35,9 +36,9 @@ struct PrompterView: View {
         .overlay(alignment: .topLeading) {
             // Метка-стрелка слева от строки, которую читаешь сейчас.
             Image(systemName: "arrowtriangle.right.fill")
-                .font(.system(size: settings.fontSize * 0.55))
+                .font(.system(size: fs * 0.55))
                 .foregroundStyle(Theme.accent)
-                .offset(x: -settings.fontSize * 0.75, y: lineY + lineH * 0.5 - settings.fontSize * 0.3)
+                .offset(x: -fs * 0.75, y: lineY + lineH * 0.5 - fs * 0.3)
                 .accessibilityHidden(true)
         }
         .gesture(DragGesture().onChanged { v in

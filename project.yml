@@ -1,0 +1,52 @@
+name: CreatorStudio
+options:
+  bundleIdPrefix: de.mathiasweiss
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    # Команду (Personal Team) Xcode подставит сам после входа в Apple ID
+    DEVELOPMENT_TEAM: ""
+targets:
+  CreatorStudio:
+    type: application
+    platform: iOS
+    sources:
+      - path: CreatorStudio
+    info:
+      path: CreatorStudio/Info.plist
+      properties:
+        CFBundleDisplayName: Студия
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        NSCameraUsageDescription: Камера нужна, чтобы записывать видео.
+        NSMicrophoneUsageDescription: Микрофон нужен, чтобы записывать звук.
+        NSPhotoLibraryAddUsageDescription: Готовые видео сохраняются в галерею.
+        NSSpeechRecognitionUsageDescription: Распознавание речи двигает суфлёр, пока ты говоришь.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.mathiasweiss.creatorstudio
+        GENERATE_INFOPLIST_FILE: NO
+  CreatorStudioTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CreatorStudioTests
+    dependencies:
+      - target: CreatorStudio
+schemes:
+  CreatorStudio:
+    build:
+      targets:
+        CreatorStudio: all
+        CreatorStudioTests: [test]
+    test:
+      targets: [CreatorStudioTests]

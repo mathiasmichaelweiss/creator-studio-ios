@@ -1,0 +1,73 @@
+import Foundation
+
+/// Где лежат сценарии в Notion. Это не секреты: без ключа по ним ничего не прочитать.
+enum NotionConfig {
+    static let scriptsDataSource = "56f3ff11-3a1a-4b98-a99c-83c552bde99b"
+    static let variantsDataSource = "886d2a7b-f046-481c-ac54-cfc4a3c35589"
+    static let apiVersion = "2025-09-03"
+    static let baseURL = URL(string: "https://api.notion.com/v1/")!
+}
+
+/// Кусок текста под своим подзаголовком («Подогрев», «Разворот»…). В карточках это одна карточка.
+struct ScriptSection: Codable, Equatable, Hashable {
+    var label: String?
+    var text: String
+}
+
+/// Текст сценария или вариации: хук, части, призыв.
+struct ScriptBody: Codable, Equatable, Hashable {
+    var hook: String = ""
+    var sections: [ScriptSection] = []
+    var cta: String = ""
+
+    var isEmpty: Bool {
+        hook.trimmed.isEmpty && cta.trimmed.isEmpty && sections.allSatisfy { $0.text.trimmed.isEmpty }
+    }
+
+    /// Текст для суфлёра: абзацы через пустую строку, чтобы «Карточки» резали ровно по частям.
+    var prompterText: String {
+        ([hook] + sections.map(\.text) + [cta])
+            .map(\.trimmed)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+    }
+}
+
+struct ScriptVariant: Codable, Equatable, Hashable, Identifiable {
+    var id: String
+    /// «Провокация», «Вариант Mathias»…
+    var kind: String
+    var title: String
+    var body: ScriptBody
+}
+
+struct Script: Codable, Equatable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var type: String
+    var status: String
+    var studioId: String
+    var body: ScriptBody
+    var variantIds: [String] = []
+    var variants: [ScriptVariant] = []
+
+    /// Вариация берёт хук и призыв основного текста, если своих нет.
+    func body(for variant: ScriptVariant?) -> ScriptBody {
+        guard let v = variant else { return body }
+        var b = v.body
+        if b.hook.trimmed.isEmpty { b.hook = body.hook }
+        if b.cta.trimmed.isEmpty { b.cta = body.cta }
+        if b.sections.isEmpty { b.sections = body.sections }
+        return b
+    }
+}
+
+enum ScriptStatus {
+    static let all = ["Готов к съёмке", "Идея", "Снято", "Опубликовано"]
+    /// Порядок в списке: сначала то, что можно снимать.
+    static func rank(_ s: String) -> Int { all.firstIndex(of: s) ?? all.count }
+}
+
+extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}

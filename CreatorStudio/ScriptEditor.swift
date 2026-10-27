@@ -12,6 +12,7 @@ struct ScriptEditor: View {
                 .font(Typo.inter(14, relativeTo: .footnote))
                 .foregroundStyle(Palette.ink2)
             TextEditor(text: $settings.script)
+                .onChange(of: settings.script) { _, _ in settings.scriptTitle = "" }
                 .font(Typo.inter(17))
                 .foregroundStyle(Palette.ink)
                 .scrollContentBackground(.hidden)
@@ -57,6 +58,8 @@ struct SettingsSheet: View {
                     ChipPicker(options: TextScale.allCases, selection: $settings.textScale) { $0.title }
                 }
 
+                NotionKeySection()
+
                 Card {
                     if settings.mode == .prompter {
                         SliderRow(title: "Скорость суфлёра", value: $settings.speed, range: 10...150, step: 5)
@@ -79,6 +82,67 @@ struct SettingsSheet: View {
         .foregroundStyle(Palette.ink)
         .background(Palette.bg.ignoresSafeArea())
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// Ключ Notion: вводится один раз на телефоне, хранится в Keychain, на экран не выводится.
+private struct NotionKeySection: View {
+    @EnvironmentObject var store: ScriptStore
+    @State private var input = ""
+    @State private var saved = NotionKeychain.hasKey
+    @State private var status: String?
+    @State private var checking = false
+
+    var body: some View {
+        SectionTitle("Notion")
+        Card {
+            if saved {
+                Text("Ключ сохранён в Keychain").font(Typo.inter(16, .medium))
+                HStack {
+                    Button(checking ? "Проверяю" : "Проверить") { check() }
+                        .buttonStyle(PillButtonStyle())
+                        .disabled(checking)
+                    Spacer()
+                    Button("Удалить ключ") {
+                        NotionKeychain.delete(); saved = false; status = nil
+                    }
+                    .buttonStyle(PillButtonStyle(prominent: false))
+                }
+            } else {
+                SecureField("Ключ интеграции «Студия»", text: $input)
+                    .textContentType(.password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(Typo.inter(16))
+                    .padding(12)
+                    .background(Palette.soft, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
+                Button("Сохранить") {
+                    if NotionKeychain.save(input) { input = ""; saved = true; check() }
+                    else { status = "Не получилось сохранить. Вставь ключ ещё раз." }
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(input.trimmed.isEmpty)
+            }
+            if let status {
+                Text(status).font(Typo.inter(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            }
+        }
+    }
+
+    @MainActor private func check() {
+        guard let client = NotionClient() else { status = NotionError.noKey.errorDescription; return }
+        checking = true
+        Task {
+            do {
+                try await client.check()
+                status = "Доступ есть. Загружаю сценарии…"
+                await store.refresh()
+                status = store.error ?? "Готово: \(store.scripts.count) сценариев."
+            } catch {
+                status = (error as? LocalizedError)?.errorDescription ?? "Нет связи с Notion."
+            }
+            checking = false
+        }
     }
 }
 

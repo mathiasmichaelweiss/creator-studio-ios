@@ -3,6 +3,8 @@ import SwiftUI
 /// Настройки суфлёра и текст сценария. Хранятся на устройстве.
 final class PrompterSettings: ObservableObject {
     @AppStorage("script") var script: String = PrompterSettings.sample
+    /// Название выбранного сценария из Notion (пусто, если текст свой).
+    @AppStorage("scriptTitle") var scriptTitle: String = ""
     /// Скорость прокрутки в пунктах в секунду.
     @AppStorage("speed") var speed: Double = 40
     @AppStorage("fontSize") var fontSize: Double = 30

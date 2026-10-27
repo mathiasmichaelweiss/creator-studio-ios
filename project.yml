@@ -44,6 +44,10 @@ targets:
       - path: CreatorStudioTests
     dependencies:
       - target: CreatorStudio
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: de.mathiasweiss.creatorstudio.tests
 schemes:
   CreatorStudio:
     build:

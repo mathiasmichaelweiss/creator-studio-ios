@@ -6,6 +6,35 @@ struct FactPoint: Codable, Equatable, Hashable {
     var views: Double
 }
 
+/// Цифры из Insights на момент последнего среза.
+struct FactStats: Codable, Equatable, Hashable {
+    var hours: Double?
+    var views: Double?
+    var skip: Double?
+    var avgWatch: Double?
+    var length: Double?
+    var saves: Double?
+    var shares: Double?
+    var reposts: Double?
+    var likes: Double?
+    var comments: Double?
+    var subs: Double?
+
+    var isEmpty: Bool { [views, skip, avgWatch, saves, shares, likes, comments, subs].allSatisfy { $0 == nil } }
+
+    /// Досмотр в процентах: средний просмотр / длина ролика.
+    var retention: Double? {
+        guard let a = avgWatch, let l = length, l > 0 else { return nil }
+        return a / l * 100
+    }
+
+    /// Доля от просмотров в процентах.
+    func rate(_ v: Double?) -> Double? {
+        guard let v, let views, views > 0 else { return nil }
+        return v / views * 100
+    }
+}
+
 /// Прогноз просмотров из базы «Прогнозы»: коридор (минимум, ожидание, максимум) на 24/48/72/96 ч.
 struct Forecast: Codable, Equatable, Hashable {
     static let grid: [Double] = [24, 48, 72, 96]
@@ -21,6 +50,8 @@ struct Forecast: Codable, Equatable, Hashable {
     var shares: String = ""
     var saves: String = ""
     var subs: String = ""
+    /// Последний срез из Insights (поля «Факт …» в Notion). Необязательно: старый кэш без него читается.
+    var stats: FactStats? = nil
 
     var isUsable: Bool { mid.count == Forecast.grid.count }
 }
@@ -41,6 +72,12 @@ enum ForecastParser {
         f.shares = NotionParser.plainText(props["Репосты"])
         f.saves = NotionParser.plainText(props["Сохранения"])
         f.subs = NotionParser.plainText(props["Подписки"])
+        let n = { (k: String) in NotionParser.number(props[k]) }
+        let st = FactStats(hours: n("Факт часов"), views: n("Факт просмотры"), skip: n("Факт пропуски"),
+                           avgWatch: n("Факт досмотр"), length: n("Факт длина"), saves: n("Факт сохранения"),
+                           shares: n("Факт отправки"), reposts: n("Факт репосты"), likes: n("Факт лайки"),
+                           comments: n("Факт комментарии"), subs: n("Факт подписки"))
+        f.stats = st.isEmpty ? nil : st
 
         let codes = codeBlocks(blocks)
         if let parsed = codes["прогноз"].flatMap({ band(from: $0) }) {
@@ -59,7 +96,7 @@ enum ForecastParser {
         if let points = codes["факт"].flatMap({ facts(from: $0) }) {
             f.actual = points
         } else if let views = NotionParser.number(props["Факт просмотры"]) {
-            f.actual = [FactPoint(hours: 96, views: views)]
+            f.actual = [FactPoint(hours: f.stats?.hours ?? 96, views: views)]
         }
         return f.isUsable ? (scriptId, f) : nil
     }
@@ -160,6 +197,25 @@ enum ForecastMath {
         let p = Int((abs(diff) * 100).rounded())
         if p <= 10 { return .onTrack }
         return diff > 0 ? .above(percent: p) : .below(percent: p)
+    }
+
+    /// «~23%», «2,0%», «25 %» → 23 / 2 / 25. Диапазоны («60–200») и пусто → nil.
+    static func percent(_ text: String) -> Double? {
+        guard text.contains("%") else { return nil }
+        let cleaned = text.replacingOccurrences(of: ",", with: ".").filter { $0.isNumber || $0 == "." }
+        return Double(cleaned)
+    }
+
+    /// Процент для карточки: «29 %», «0,6 %».
+    static func pct(_ v: Double) -> String {
+        let s = v >= 10 ? String(Int(v.rounded())) : String(format: "%.1f", v)
+        return s.replacingOccurrences(of: ".", with: ",") + " %"
+    }
+
+    /// Последний факт и ожидание на тот же час.
+    static func now(_ f: Forecast, facts: [FactPoint]) -> (fact: FactPoint, expected: Double)? {
+        guard let last = facts.max(by: { $0.hours < $1.hours }), let e = expected(f, at: last.hours) else { return nil }
+        return (last, e)
     }
 
     static func compact(_ v: Double) -> String {

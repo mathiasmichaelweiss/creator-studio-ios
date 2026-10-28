@@ -14,7 +14,7 @@ struct ScriptPicker: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     SheetHeader(title: "Студия") { dismiss() }
-                    ChipPicker(options: StudioTab.allCases, selection: $tab, title: { $0.title }, icon: { $0.icon })
+                    ChipPicker(options: StudioTab.allCases, selection: $tab, title: { $0.title }, icon: { $0.icon }, compactOff: true)
                     syncRow
                     if let error = store.error {
                         Text(error)
@@ -43,6 +43,8 @@ struct ScriptPicker: View {
                         Button("Свой текст") { settings.scriptTitle = ""; showEditor = true }
                             .buttonStyle(PillButtonStyle(prominent: false))
                             .padding(.top, 6)
+                    case .questions:
+                        QuestionsSection()
                     case .news:
                         NewsSection()
                     case .plan:
@@ -103,14 +105,14 @@ struct ScriptPicker: View {
 }
 
 enum StudioTab: String, CaseIterable, Identifiable {
-    case scripts, news, plan, forecasts
+    case scripts, questions, news, plan, forecasts
     var id: String { rawValue }
     var title: String {
-        switch self { case .scripts: "Сценарии"; case .news: "Поводы"; case .plan: "План"; case .forecasts: "Прогнозы" }
+        switch self { case .scripts: "Сценарии"; case .questions: "Вопросы"; case .news: "Поводы"; case .plan: "План"; case .forecasts: "Прогнозы" }
     }
     var icon: String {
         switch self {
-        case .scripts: "doc.text"; case .news: "bolt.fill"; case .plan: "calendar"; case .forecasts: "chart.line.uptrend.xyaxis"
+        case .scripts: "doc.text"; case .questions: "questionmark.bubble"; case .news: "bolt.fill"; case .plan: "calendar"; case .forecasts: "chart.line.uptrend.xyaxis"
         }
     }
 }

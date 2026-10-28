@@ -1,6 +1,6 @@
 import Foundation
 
-/// Только чтение из Notion: строки баз и блоки страниц.
+/// Notion: строки баз, блоки страниц и смена одного поля-выбора (статус).
 struct NotionClient {
     typealias JSON = [String: Any]
 
@@ -40,6 +40,12 @@ struct NotionClient {
             cursor = page.nextCursor
         } while cursor != nil
         return all
+    }
+
+    /// Меняет поле-выбор на странице, например «Статус» = «Снято».
+    func setSelect(pageId: String, property: String, value: String) async throws {
+        _ = try await send("pages/\(pageId)", method: "PATCH",
+                           body: NotionWrite.selectBody(property: property, value: value))
     }
 
     /// Проверка ключа и доступа: один запрос к базе «Сценарии».

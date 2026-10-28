@@ -36,6 +36,26 @@ final class ScriptStore: ObservableObject {
         }
     }
 
+    /// Сменить статус: сразу на экране, потом в Notion. Если Notion не принял, вернуть как было.
+    func setStatus(_ status: String, for scriptId: String) async {
+        guard let i = scripts.firstIndex(where: { $0.id == scriptId }), scripts[i].status != status else { return }
+        guard let client = NotionClient() else { error = NotionError.noKey.errorDescription; return }
+        let old = scripts[i].status
+        scripts[i].status = status
+        saveCache()
+        do {
+            try await client.setSelect(pageId: scriptId, property: "Статус", value: status)
+        } catch {
+            if let j = scripts.firstIndex(where: { $0.id == scriptId }) { scripts[j].status = old }
+            saveCache()
+            self.error = NotionWrite.message(for: error)
+        }
+    }
+
+    private func saveCache() {
+        cache.save(CachedScripts(date: lastSync ?? Date(), scripts: scripts))
+    }
+
     /// Строки обеих баз, затем текст каждой страницы (по одной, чтобы не упереться в лимит Notion).
     static func download(client: NotionClient) async throws -> [Script] {
         let scriptPages = try await client.queryAll(dataSource: NotionConfig.scriptsDataSource)

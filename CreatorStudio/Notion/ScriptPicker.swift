@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Выбор сценария из Notion перед записью. Можно взять основной текст или вариацию.
 struct ScriptPicker: View {
@@ -42,6 +43,8 @@ struct ScriptPicker: View {
                         Button("Свой текст") { settings.scriptTitle = ""; showEditor = true }
                             .buttonStyle(PillButtonStyle(prominent: false))
                             .padding(.top, 6)
+                    case .news:
+                        NewsSection()
                     case .plan:
                         PlanSection()
                     case .forecasts:
@@ -100,10 +103,10 @@ struct ScriptPicker: View {
 }
 
 enum StudioTab: String, CaseIterable, Identifiable {
-    case scripts, plan, forecasts
+    case scripts, news, plan, forecasts
     var id: String { rawValue }
     var title: String {
-        switch self { case .scripts: "Сценарии"; case .plan: "План"; case .forecasts: "Прогнозы" }
+        switch self { case .scripts: "Сценарии"; case .news: "Поводы"; case .plan: "План"; case .forecasts: "Прогнозы" }
     }
 }
 
@@ -166,6 +169,8 @@ struct VariantChoice: Identifiable, Hashable {
 
 private struct ScriptDetail: View {
     let script: Script
+    @EnvironmentObject var store: ScriptStore
+    @State private var copied = false
     let onUse: (String, String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var choice: VariantChoice
@@ -191,6 +196,10 @@ private struct ScriptDetail: View {
                     Spacer()
                 }
                 Text(script.title).font(Typo.inter(24, .bold, relativeTo: .title)).tracking(-0.4)
+                StatusMenu(script: store.scripts.first { $0.id == script.id } ?? script)
+                if let e = store.error {
+                    Text(e).font(Typo.inter(13, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                }
                 ScoreCard(script: script)
                 if !script.variants.isEmpty {
                     ChipPicker(options: VariantChoice.list(for: script), selection: $choice) { $0.title }
@@ -205,14 +214,26 @@ private struct ScriptDetail: View {
                     }
                     Part(label: "Призыв", text: text.cta)
                 }
-                Button {
-                    onUse(text.prompterText, script.title)
-                } label: {
-                    Text("Взять в суфлёр").frame(maxWidth: .infinity)
+                if StatusFlow.usesPrompter(script) {
+                    Button {
+                        onUse(text.prompterText, script.title)
+                    } label: {
+                        Text("Взять в суфлёр").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PillButtonStyle())
+                    .disabled(text.isEmpty)
+                    .padding(.top, 6)
+                } else {
+                    Button {
+                        UIPasteboard.general.string = text.prompterText
+                        copied = true
+                    } label: {
+                        Text(copied ? "Скопировано" : "Скопировать текст").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PillButtonStyle())
+                    .disabled(text.isEmpty)
+                    .padding(.top, 6)
                 }
-                .buttonStyle(PillButtonStyle())
-                .disabled(text.isEmpty)
-                .padding(.top, 6)
             }
             .padding(20)
         }
@@ -374,5 +395,36 @@ private struct Metric: View {
             Text(label).font(Typo.inter(12, .semibold, relativeTo: .caption)).foregroundStyle(Palette.ink3)
             Text(value).font(Typo.inter(20, .bold))
         }
+    }
+}
+
+/// Статус сценария: меняется прямо здесь и сохраняется в Notion.
+private struct StatusMenu: View {
+    let script: Script
+    @EnvironmentObject var store: ScriptStore
+
+    var body: some View {
+        let options = StatusFlow.options(for: ScriptFolder.of(type: script.type))
+        Menu {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    Task { await store.setStatus(option, for: script.id) }
+                } label: {
+                    if option == script.status { Label(option, systemImage: "checkmark") } else { Text(option) }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text("Статус").font(Typo.inter(13, .semibold, relativeTo: .footnote)).foregroundStyle(Palette.ink3)
+                Text(script.status.isEmpty ? "Не указан" : script.status).font(Typo.inter(16, .semibold))
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.ink3)
+            }
+            .padding(14)
+            .foregroundStyle(Palette.ink)
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
+        }
+        .accessibilityLabel("Статус: \(script.status)")
     }
 }

@@ -55,3 +55,43 @@ final class LibraryTests: XCTestCase {
         XCTAssertNil(ScriptScore.provocative(s("2", type: "Рилс", variants: [a])))
     }
 }
+
+/// Статусы, запись в Notion и инфоповоды.
+final class StatusAndNewsTests: XCTestCase {
+    func testStatusOptionsPerFolder() {
+        XCTAssertEqual(StatusFlow.options(for: .carousels), ["Идея", "В работе", "Опубликовано"])
+        XCTAssertTrue(StatusFlow.options(for: .reels).contains("Снято"))
+        let car = Script(id: "1", title: "c", type: "Карусель", status: "", studioId: "", body: ScriptBody())
+        let reel = Script(id: "2", title: "r", type: "Рилс", status: "", studioId: "", body: ScriptBody())
+        XCTAssertFalse(StatusFlow.usesPrompter(car))
+        XCTAssertTrue(StatusFlow.usesPrompter(reel))
+    }
+
+    func testSelectBody() throws {
+        let body = NotionWrite.selectBody(property: "Статус", value: "Снято")
+        let props = try XCTUnwrap(body["properties"] as? [String: Any])
+        let st = try XCTUnwrap(props["Статус"] as? [String: Any])
+        XCTAssertEqual((st["select"] as? [String: Any])?["name"] as? String, "Снято")
+    }
+
+    func testNewsParseAndSort() throws {
+        func rich(_ s: String) -> [[String: Any]] { [["plain_text": s]] }
+        let page: [String: Any] = ["id": "n1", "properties": [
+            "Название": ["type": "title", "title": rich("Новый Mindestlohn")],
+            "Суть": ["type": "rich_text", "rich_text": rich("С января больше")],
+            "Источник": ["type": "url", "url": "https://example.org"],
+            "Срочность": ["type": "select", "select": ["name": "Горит"]],
+            "Потенциал": ["type": "number", "number": 8],
+            "Статус": ["type": "select", "select": ["name": "Новый"]],
+        ] as [String: Any]]
+        let n = try XCTUnwrap(NewsParser.item(page: page))
+        XCTAssertEqual(n.title, "Новый Mindestlohn")
+        XCTAssertEqual(n.source, "https://example.org")
+        XCTAssertEqual(n.potential, 8)
+        let a = NewsItem(id: "a", title: "a", urgency: "Не срочно", potential: 10)
+        let b = NewsItem(id: "b", title: "b", urgency: "Горит", potential: 5)
+        let c = NewsItem(id: "c", title: "c", urgency: "Горит", potential: 9)
+        XCTAssertEqual(NewsParser.sorted([a, b, c]).map(\.id), ["c", "b", "a"])
+        XCTAssertEqual(NewsFilter.fresh.apply([n, a]).map(\.id), ["n1", "a"])
+    }
+}

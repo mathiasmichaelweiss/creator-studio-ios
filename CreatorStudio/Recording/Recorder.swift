@@ -33,6 +33,14 @@ final class Recorder: NSObject, ObservableObject {
     private var videoSize = CGSize(width: 1080, height: 1920)
     private var isWriting = false
 
+    /// Звук микрофона для суфлёра по голосу. Вызывается на очереди камеры.
+    private let tapLock = NSLock()
+    private var _audioTap: ((CMSampleBuffer) -> Void)?
+    var audioTap: ((CMSampleBuffer) -> Void)? {
+        get { tapLock.lock(); defer { tapLock.unlock() }; return _audioTap }
+        set { tapLock.lock(); _audioTap = newValue; tapLock.unlock() }
+    }
+
     // MARK: Настройка
 
     func configure() {
@@ -214,6 +222,7 @@ final class Recorder: NSObject, ObservableObject {
 
 extension Recorder: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        if output === audioOutput { audioTap?(sampleBuffer) }
         guard isWriting, let writer, writer.status == .writing else { return }
         let isVideo = output === videoOutput
         let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)

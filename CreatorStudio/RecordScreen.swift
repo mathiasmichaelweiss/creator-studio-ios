@@ -5,6 +5,7 @@ struct RecordScreen: View {
     @EnvironmentObject var settings: PrompterSettings
     @StateObject private var recorder = Recorder()
     @StateObject private var engine = PrompterEngine()
+    @StateObject private var voice = SpeechFollower()
     @State private var countdown: Int?
     @State private var showScript = false
     @State private var showSettings = false
@@ -19,7 +20,7 @@ struct RecordScreen: View {
 
                 VStack(spacing: 0) {
                     if settings.mode == .prompter {
-                        PrompterView(engine: engine, height: geo.size.height * 0.30)
+                        PrompterView(engine: engine, voice: voice, height: geo.size.height * 0.30)
                             .padding(.horizontal, 28)
                     } else {
                         CardsView(index: $cardIndex, height: geo.size.height * 0.34)
@@ -85,6 +86,14 @@ struct RecordScreen: View {
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .foregroundStyle(recorder.state == .recording ? Color.white : Palette.ink)
                 .background(recorder.state == .recording ? AnyShapeStyle(Palette.brand) : AnyShapeStyle(Theme.panel), in: Capsule())
+                if usingVoice, voice.status != .off {
+                    Text(voice.status == .listening ? "Слушаю" : "Голос выкл.")
+                        .font(Typo.inter(13, .medium))
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .foregroundStyle(Palette.ink)
+                        .background(Theme.panel, in: Capsule())
+                        .accessibilityLabel(voice.status.text)
+                }
                 if !recorder.markers.isEmpty {
                     Text("Повторов: \(recorder.markers.count)")
                         .font(Typo.inter(13, .medium))
@@ -158,12 +167,15 @@ struct RecordScreen: View {
         switch recorder.state {
         case .idle:
             engine.reset(); engine.speed = settings.speed
-            runCountdown { recorder.start(); if prompting { engine.start() } }
+            engine.followsVoice = usingVoice
+            voice.load(script: settings.script)
+            voice.resetPosition()
+            runCountdown { recorder.start(); if prompting { engine.start(); startVoice() } }
         case .recording:
             // Одна кнопка: стоп записи и стоп текста одновременно.
-            recorder.pause(); engine.stop()
+            recorder.pause(); engine.stop(); voice.stop()
         case .paused:
-            runCountdown { recorder.resume(); if prompting { engine.start() } }
+            runCountdown { recorder.resume(); if prompting { engine.start(); startVoice() } }
         case .finishing:
             break
         }
@@ -172,8 +184,17 @@ struct RecordScreen: View {
     /// Текст едет только в режиме суфлёра. В карточках листаешь сам.
     private var prompting: Bool { settings.mode == .prompter }
 
+    /// Суфлёр едет за голосом, а не со скоростью.
+    private var usingVoice: Bool { prompting && settings.scrollMode == .voice }
+
+    private func startVoice() {
+        guard usingVoice else { return }
+        Task { await voice.start() }
+    }
+
     private func stop() {
         engine.stop()
+        voice.stop()
         recorder.stop()
     }
 
@@ -195,6 +216,8 @@ struct RecordScreen: View {
         let audio = await AVCaptureDevice.requestAccess(for: .audio)
         guard video && audio else { permissionDenied = true; return }
         engine.speed = settings.speed
+        let v = voice
+        recorder.audioTap = { v.append($0) }
         recorder.configure()
     }
 

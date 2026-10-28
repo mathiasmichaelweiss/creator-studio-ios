@@ -60,8 +60,16 @@ struct SettingsSheet: View {
 
                 NotionKeySection()
 
+                if settings.mode == .prompter {
+                    SectionTitle("Как едет суфлёр")
+                    ChipPicker(options: ScrollMode.allCases, selection: $settings.scrollMode) { $0.title }
+                    Hint(settings.scrollMode == .speed
+                         ? "С постоянной скоростью из ползунка ниже."
+                         : "За твоим голосом: телефон распознаёт речь и подводит к стрелке строку, которую ты говоришь. Замолчал, текст стоит.")
+                }
+
                 Card {
-                    if settings.mode == .prompter {
+                    if settings.mode == .prompter && settings.scrollMode == .speed {
                         SliderRow(title: "Скорость суфлёра", value: $settings.speed, range: 10...150, step: 5)
                         Divider().overlay(Palette.line)
                     }

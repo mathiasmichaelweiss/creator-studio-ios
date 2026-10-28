@@ -14,7 +14,7 @@ struct ScriptPicker: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     SheetHeader(title: "Студия") { dismiss() }
-                    ChipPicker(options: StudioTab.allCases, selection: $tab) { $0.title }
+                    ChipPicker(options: StudioTab.allCases, selection: $tab, title: { $0.title }, icon: { $0.icon })
                     syncRow
                     if let error = store.error {
                         Text(error)
@@ -107,6 +107,11 @@ enum StudioTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self { case .scripts: "Сценарии"; case .news: "Поводы"; case .plan: "План"; case .forecasts: "Прогнозы" }
+    }
+    var icon: String {
+        switch self {
+        case .scripts: "doc.text"; case .news: "bolt.fill"; case .plan: "calendar"; case .forecasts: "chart.line.uptrend.xyaxis"
+        }
     }
 }
 

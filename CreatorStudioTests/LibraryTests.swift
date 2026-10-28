@@ -95,3 +95,20 @@ final class StatusAndNewsTests: XCTestCase {
         XCTAssertEqual(NewsFilter.fresh.apply([n, a]).map(\.id), ["n1", "a"])
     }
 }
+
+/// Порядок статусов и вид карточки.
+final class OrderAndLookTests: XCTestCase {
+    func testStatusOrder() {
+        func s(_ id: String, _ st: String) -> Script {
+            Script(id: id, title: id, type: "Рилс", status: st, studioId: "", body: ScriptBody())
+        }
+        let list = [s("p", "Опубликовано"), s("i", "Идея"), s("r", "Готов к съёмке"), s("s", "Снято"), s("w", "В работе")]
+        XCTAssertEqual(ScriptFolder.reels.items(list).map(\.id), ["s", "r", "w", "i", "p"])
+    }
+
+    func testCardOpacity() {
+        XCTAssertEqual(CardLook.clampOpacity(0), CardLook.minOpacity)
+        XCTAssertEqual(CardLook.clampOpacity(2), 1)
+        XCTAssertEqual(CardLook.percent(0.85), "85 %")
+    }
+}

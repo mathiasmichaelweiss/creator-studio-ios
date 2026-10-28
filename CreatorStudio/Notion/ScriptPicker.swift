@@ -5,7 +5,6 @@ struct ScriptPicker: View {
     @EnvironmentObject var settings: PrompterSettings
     @EnvironmentObject var store: ScriptStore
     @Environment(\.dismiss) private var dismiss
-    @State private var filter: StatusFilter = .ready
     @State private var tab: StudioTab = .scripts
     @State private var showEditor = false
 
@@ -26,19 +25,19 @@ struct ScriptPicker: View {
                     }
                     switch tab {
                     case .scripts:
-                        ChipPicker(options: StatusFilter.allCases, selection: $filter) { $0.title }
-                        let list = filter.apply(store.scripts)
-                        if list.isEmpty {
-                            Text(store.scripts.isEmpty
-                                 ? "Пока пусто. Добавь ключ Notion в настройках и нажми «Обновить»."
-                                 : "В этом статусе ничего нет.")
+                        if store.scripts.isEmpty {
+                            Text("Пока пусто. Добавь ключ Notion в настройках и нажми «Обновить».")
                                 .font(Typo.inter(15))
                                 .foregroundStyle(Palette.ink2)
                                 .padding(.top, 8)
                         }
-                        ForEach(list) { script in
-                            NavigationLink(value: script) { ScriptRow(script: script) }
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            ForEach(ScriptFolder.visible(store.scripts)) { folder in
+                                NavigationLink(value: folder) {
+                                    FolderCard(folder: folder, scripts: folder.items(store.scripts))
+                                }
                                 .buttonStyle(.plain)
+                            }
                         }
                         Button("Свой текст") { settings.scriptTitle = ""; showEditor = true }
                             .buttonStyle(PillButtonStyle(prominent: false))
@@ -53,6 +52,9 @@ struct ScriptPicker: View {
             }
             .foregroundStyle(Palette.ink)
             .background(Palette.bg.ignoresSafeArea())
+            .navigationDestination(for: ScriptFolder.self) { folder in
+                FolderView(folder: folder)
+            }
             .navigationDestination(for: Script.self) { script in
                 ScriptDetail(script: script) { text, title in
                     settings.script = text
@@ -105,21 +107,6 @@ enum StudioTab: String, CaseIterable, Identifiable {
     }
 }
 
-enum StatusFilter: String, CaseIterable, Identifiable {
-    case ready, idea, all
-    var id: String { rawValue }
-    var title: String {
-        switch self { case .ready: "К съёмке"; case .idea: "Идеи"; case .all: "Все" }
-    }
-    func apply(_ s: [Script]) -> [Script] {
-        switch self {
-        case .ready: s.filter { $0.status == "Готов к съёмке" }
-        case .idea: s.filter { $0.status == "Идея" }
-        case .all: s
-        }
-    }
-}
-
 private struct ScriptRow: View {
     let script: Script
     var body: some View {
@@ -127,7 +114,9 @@ private struct ScriptRow: View {
             HStack(spacing: 6) {
                 TagChip(script.type)
                 TagChip(script.status)
-                if !script.variants.isEmpty { TagChip("+\(script.variants.count) вар.") }
+                if let v = ScriptScore.views(script) { TagChip(ScriptScore.short(v)) }
+                if ScriptScore.provocative(script) != nil { TagChip("Провокация") }
+                else if !script.variants.isEmpty { TagChip("+\(script.variants.count) вар.") }
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.ink3)
             }
@@ -169,7 +158,9 @@ struct VariantChoice: Identifiable, Hashable {
 
     static func list(for script: Script) -> [VariantChoice] {
         [VariantChoice(id: "main", title: "Основной", variant: nil)] +
-            script.variants.map { VariantChoice(id: $0.id, title: $0.kind, variant: $0) }
+            script.variants
+                .sorted { ScriptScore.isProvocative($0) && !ScriptScore.isProvocative($1) }
+                .map { VariantChoice(id: $0.id, title: ScriptScore.isProvocative($0) ? "Провокация" : $0.kind, variant: $0) }
     }
 }
 
@@ -200,6 +191,7 @@ private struct ScriptDetail: View {
                     Spacer()
                 }
                 Text(script.title).font(Typo.inter(24, .bold, relativeTo: .title)).tracking(-0.4)
+                ScoreCard(script: script)
                 if !script.variants.isEmpty {
                     ChipPicker(options: VariantChoice.list(for: script), selection: $choice) { $0.title }
                 }
@@ -244,6 +236,143 @@ private struct Part: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
+        }
+    }
+}
+
+// MARK: Папки
+
+private struct FolderCard: View {
+    let folder: ScriptFolder
+    let scripts: [Script]
+
+    var body: some View {
+        let ready = StatusFilter.ready.count(scripts)
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.brand)
+                Image(systemName: folder.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 44, height: 44)
+            Spacer(minLength: 4)
+            Text(folder.title).font(Typo.inter(18, .semibold))
+            Text(ready > 0 ? "\(scripts.count) · \(ready) к съёмке" : "\(scripts.count)")
+                .font(Typo.inter(13, .medium, relativeTo: .footnote))
+                .foregroundStyle(Palette.ink3)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(Palette.line))
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct FolderView: View {
+    let folder: ScriptFolder
+    @EnvironmentObject var store: ScriptStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var filter: StatusFilter = .all
+
+    var body: some View {
+        let inFolder = folder.items(store.scripts)
+        let list = filter.apply(inFolder)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold))
+                            .frame(width: 40, height: 40)
+                            .background(Palette.chip, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Назад")
+                    Text(folder.title).font(Typo.inter(24, .bold, relativeTo: .title)).tracking(-0.4)
+                    Spacer()
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(StatusFilter.allCases) { f in
+                            let on = f == filter
+                            Button { withAnimation(.easeOut(duration: 0.15)) { filter = f } } label: {
+                                Text("\(f.title) \(f.count(inFolder))")
+                                    .font(Typo.inter(14, on ? .semibold : .medium))
+                                    .padding(.horizontal, 14).padding(.vertical, 8)
+                                    .foregroundStyle(on ? Palette.btnInk : Palette.ink2)
+                                    .background(on ? Palette.btn : Palette.chip, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                }
+                if list.isEmpty {
+                    Text(inFolder.isEmpty ? "В этой папке пока ничего нет." : "В этом статусе ничего нет.")
+                        .font(Typo.inter(15))
+                        .foregroundStyle(Palette.ink2)
+                        .padding(.top, 8)
+                }
+                ForEach(list) { script in
+                    NavigationLink(value: script) { ScriptRow(script: script) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .foregroundStyle(Palette.ink)
+        .background(Palette.bg.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// Оценка в карточке сценария: просмотры за 96 ч, вирусность, есть ли провокационная версия.
+private struct ScoreCard: View {
+    let script: Script
+
+    var body: some View {
+        let views = ScriptScore.views(script)
+        let virality = ScriptScore.virality(script)
+        let provocative = ScriptScore.provocative(script)
+        if views != nil || virality != nil || provocative != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 16) {
+                    if let views {
+                        Metric(label: "Просмотры за 96 ч", value: ScriptScore.short(views))
+                    }
+                    if let virality {
+                        Metric(label: "Вирусность", value: virality)
+                    }
+                    Spacer(minLength: 0)
+                }
+                if provocative != nil {
+                    Text("Есть провокационная версия. Выбери её ниже.")
+                        .font(Typo.inter(13, .medium, relativeTo: .footnote))
+                        .foregroundStyle(Palette.ink2)
+                }
+                if script.forecast != nil {
+                    NavigationLink(value: ForecastRoute(scriptId: script.id)) {
+                        Text("Открыть прогноз").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PillButtonStyle(prominent: false))
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
+        }
+    }
+}
+
+private struct Metric: View {
+    let label: String
+    let value: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(Typo.inter(12, .semibold, relativeTo: .caption)).foregroundStyle(Palette.ink3)
+            Text(value).font(Typo.inter(20, .bold))
         }
     }
 }

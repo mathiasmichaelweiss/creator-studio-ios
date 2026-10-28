@@ -118,3 +118,30 @@ enum ScriptScore {
         s.variants.first(where: isProvocative)
     }
 }
+
+/// Какие статусы можно выбрать в папке. У каруселей нет съёмки.
+enum StatusFlow {
+    static func options(for folder: ScriptFolder) -> [String] {
+        switch folder {
+        case .carousels: return ["Идея", "В работе", "Опубликовано"]
+        default: return ["Идея", "В работе", "Готов к съёмке", "Снято", "Опубликовано"]
+        }
+    }
+
+    /// Карусель не читают в суфлёре, её текст копируют.
+    static func usesPrompter(_ s: Script) -> Bool { ScriptFolder.of(type: s.type) != .carousels }
+}
+
+/// Запись в Notion: тело запроса и понятные ошибки.
+enum NotionWrite {
+    static func selectBody(property: String, value: String) -> [String: Any] {
+        ["properties": [property: ["select": ["name": value]]]]
+    }
+
+    static func message(for error: Error) -> String {
+        if case NotionError.api(let code, _) = error, code == "restricted_resource" || code == "unauthorized" {
+            return "Notion не дал изменить. В Notion: Settings → Connections → Студия, включи «Update content»."
+        }
+        return (error as? LocalizedError)?.errorDescription ?? "Не получилось сохранить в Notion. Попробуй ещё раз."
+    }
+}

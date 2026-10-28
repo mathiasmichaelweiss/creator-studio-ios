@@ -5,6 +5,7 @@ enum NotionConfig {
     static let scriptsDataSource = "56f3ff11-3a1a-4b98-a99c-83c552bde99b"
     static let variantsDataSource = "886d2a7b-f046-481c-ac54-cfc4a3c35589"
     static let forecastsDataSource = "2b2d559e-2fa4-4bce-8db3-0d4e21a5cfa8"
+    static let newsDataSource = "7d9969cd-a0e1-47d0-90f8-0d08b2050ffe"
     static let apiVersion = "2025-09-03"
     static let baseURL = URL(string: "https://api.notion.com/v1/")!
 }

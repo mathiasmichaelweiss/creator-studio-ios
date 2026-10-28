@@ -17,6 +17,9 @@ final class PrompterSettings: ObservableObject {
     /// Тема и размер текста, как переключатели на razberemsya.de.
     @AppStorage("theme") var theme: AppTheme = .system
     @AppStorage("textScale") var textScale: TextScale = .normal
+    /// Подложка карточек: цвет и прозрачность (шестерёнка на карточке).
+    @AppStorage("cardTone") var cardTone: CardTone = .dark
+    @AppStorage("cardOpacity") var cardOpacity: Double = 0.85
 
     /// Итоговый размер текста суфлёра и карточек с учётом «Обычный / Крупный».
     var prompterFontSize: Double { fontSize * textScale.prompterFactor }

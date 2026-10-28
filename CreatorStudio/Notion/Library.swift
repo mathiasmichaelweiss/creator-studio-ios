@@ -34,7 +34,7 @@ enum ScriptFolder: String, CaseIterable, Identifiable, Hashable {
     }
 
     func items(_ scripts: [Script]) -> [Script] {
-        scripts.filter { ScriptFolder.of(type: $0.type) == self }
+        ScriptStatus.sorted(scripts.filter { ScriptFolder.of(type: $0.type) == self })
     }
 
     /// Папки для экрана: три основные всегда, «Остальное» только если там что-то есть.
@@ -144,4 +144,27 @@ enum NotionWrite {
         }
         return (error as? LocalizedError)?.errorDescription ?? "Не получилось сохранить в Notion. Попробуй ещё раз."
     }
+}
+
+extension ScriptStatus {
+    /// Порядок по статусу, внутри статуса по названию.
+    static func sorted(_ s: [Script]) -> [Script] {
+        s.sorted {
+            let a = rank($0.status), b = rank($1.status)
+            return a != b ? a < b : $0.title.localizedCompare($1.title) == .orderedAscending
+        }
+    }
+}
+
+/// Вид карточки в режиме «Карточки»: тёмная или светлая подложка и её прозрачность.
+enum CardTone: String, CaseIterable, Identifiable {
+    case dark, light
+    var id: String { rawValue }
+    var title: String { self == .dark ? "Чёрный" : "Белый" }
+}
+
+enum CardLook {
+    static let minOpacity = 0.15
+    static func clampOpacity(_ v: Double) -> Double { min(1, max(minOpacity, v)) }
+    static func percent(_ v: Double) -> String { "\(Int((clampOpacity(v) * 100).rounded())) %" }
 }

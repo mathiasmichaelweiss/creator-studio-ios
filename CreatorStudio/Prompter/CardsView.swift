@@ -6,6 +6,7 @@ struct CardsView: View {
     @EnvironmentObject var settings: PrompterSettings
     @Binding var index: Int
     let height: CGFloat
+    @State private var showLook = false
 
     private var cards: [String] { Paragraphs.split(settings.script) }
 
@@ -19,15 +20,25 @@ struct CardsView: View {
                 Text(list.isEmpty ? "Нет текста" : "Карточка \(i + 1) из \(list.count)")
                     .font(Typo.inter(13, .semibold, relativeTo: .footnote))
                     .padding(.horizontal, 10).padding(.vertical, 5)
-                    .foregroundStyle(Palette.ink2)
+                    .foregroundStyle(ink2)
                     .background(Palette.chip, in: Capsule())
                 Spacer()
                 ProgressDots(count: list.count, current: i)
+                Button { showLook = true } label: {
+                    Image(systemName: "gearshape.fill").font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(ink2)
+                        .frame(width: 34, height: 34)
+                        .background(Palette.chip, in: Circle())
+                }
+                .accessibilityLabel("Вид карточки")
+                .popover(isPresented: $showLook) {
+                    CardLookPanel().environmentObject(settings).presentationCompactAdaptation(.popover)
+                }
             }
             ScrollView {
                 Text(list.isEmpty ? "Вставь сценарий кнопкой слева внизу. Абзацы раздели пустой строкой." : list[i])
                     .font(Typo.interFixed(fs, .semibold))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(ink)
                     .lineSpacing(fs * 0.2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .id(i)
@@ -43,7 +54,7 @@ struct CardsView: View {
         }
         .padding(18)
         .frame(height: height)
-        .background(Theme.panel, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 30).onEnded { v in
             if v.translation.width < -40 { go(i + 1, count: list.count) }
@@ -51,6 +62,12 @@ struct CardsView: View {
         })
         .onChange(of: settings.script) { _, _ in index = 0 }
     }
+
+    private var cardFill: Color {
+        (settings.cardTone == .dark ? Color.black : Color.white).opacity(CardLook.clampOpacity(settings.cardOpacity))
+    }
+    private var ink: Color { settings.cardTone == .dark ? .white : .black }
+    private var ink2: Color { ink.opacity(0.7) }
 
     private func go(_ new: Int, count: Int) {
         let target = Paragraphs.clamp(new, count: count)
@@ -83,5 +100,27 @@ private struct ProgressDots: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// Настройки вида карточки: цвет подложки и прозрачность.
+private struct CardLookPanel: View {
+    @EnvironmentObject var settings: PrompterSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Карточка").font(Typo.inter(16, .semibold))
+            ChipPicker(options: CardTone.allCases, selection: $settings.cardTone) { $0.title }
+            HStack {
+                Text("Непрозрачность").font(Typo.inter(13, .semibold, relativeTo: .footnote)).foregroundStyle(Palette.ink3)
+                Spacer()
+                Text(CardLook.percent(settings.cardOpacity)).font(Typo.inter(13, .semibold, relativeTo: .footnote))
+            }
+            Slider(value: $settings.cardOpacity, in: CardLook.minOpacity...1)
+                .tint(Palette.brand)
+        }
+        .padding(18)
+        .frame(width: 280)
+        .foregroundStyle(Palette.ink)
     }
 }

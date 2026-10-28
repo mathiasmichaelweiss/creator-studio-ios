@@ -119,20 +119,30 @@ struct ChipPicker<Value: Hashable & Identifiable>: View {
     let options: [Value]
     @Binding var selection: Value
     let title: (Value) -> String
+    /// Иконка SF Symbols слева от текста (необязательно).
+    var icon: ((Value) -> String?)? = nil
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(options) { option in
                 let on = option == selection
                 Button { withAnimation(.easeOut(duration: 0.15)) { selection = option } } label: {
-                    Text(title(option))
-                        .font(Typo.inter(14, on ? .semibold : .medium))
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
-                        .foregroundStyle(on ? Palette.btnInk : Palette.ink2)
-                        .background(on ? Palette.btn : Color.clear, in: Capsule())
+                    HStack(spacing: 5) {
+                        if let name = icon?(option) {
+                            Image(systemName: name).font(.system(size: 13, weight: .semibold))
+                        }
+                        Text(title(option))
+                            .font(Typo.inter(14, on ? .semibold : .medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(on ? Palette.btnInk : Palette.ink2)
+                    .background(on ? Palette.btn : Color.clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(title(option))
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }

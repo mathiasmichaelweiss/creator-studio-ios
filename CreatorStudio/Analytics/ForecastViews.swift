@@ -169,6 +169,9 @@ struct ForecastDetail: View {
                                 .font(Typo.inter(12, .semibold, relativeTo: .caption)).foregroundStyle(Palette.ink2)
                         }
                     }
+                    if let now = ForecastMath.now(f, facts: facts) {
+                        NowCard(fact: now.fact, expected: now.expected)
+                    }
                     ForecastChart(forecast: f, facts: facts)
                         .frame(height: 240)
                         .padding(14)
@@ -201,22 +204,48 @@ struct ForecastDetail: View {
     }
 
     private func metrics(_ f: Forecast) -> some View {
-        let rows: [(String, String)] = [
-            ("24 ч", ForecastMath.compact(f.mid[0])), ("48 ч", ForecastMath.compact(f.mid[1])),
-            ("72 ч", ForecastMath.compact(f.mid[2])), ("96 ч", ForecastMath.compact(f.mid[3])),
-            ("Пропуски", f.skip), ("Репосты", f.shares), ("Сохранения", f.saves), ("Подписки", f.subs),
-        ].filter { !$0.1.isEmpty }
+        let st = f.stats
+        let rows: [CompareRow] = [
+            CompareRow(label: "24 ч", plan: ForecastMath.compact(f.mid[0]), fact: nil),
+            CompareRow(label: "48 ч", plan: ForecastMath.compact(f.mid[1]), fact: nil),
+            CompareRow(label: "72 ч", plan: ForecastMath.compact(f.mid[2]), fact: nil),
+            CompareRow(label: "96 ч", plan: ForecastMath.compact(f.mid[3]), fact: nil),
+            CompareRow(label: "Пропуски", plan: f.skip, fact: st?.skip.map(ForecastMath.pct),
+                       better: Self.better(plan: ForecastMath.percent(f.skip), fact: st?.skip, lowerIsBetter: true)),
+            CompareRow(label: "Досмотр", plan: "", fact: st?.retention.map(ForecastMath.pct)),
+            CompareRow(label: "Пересылки", plan: f.shares, fact: st.flatMap { $0.rate($0.shares) }.map(ForecastMath.pct),
+                       better: Self.better(plan: ForecastMath.percent(f.shares), fact: st.flatMap { $0.rate($0.shares) })),
+            CompareRow(label: "Сохранения", plan: f.saves, fact: st.flatMap { $0.rate($0.saves) }.map(ForecastMath.pct),
+                       better: Self.better(plan: ForecastMath.percent(f.saves), fact: st.flatMap { $0.rate($0.saves) })),
+            CompareRow(label: "Подписки", plan: f.subs, fact: st?.subs.map { String(Int($0)) }),
+            CompareRow(label: "Лайки", plan: "", fact: st?.likes.map { ForecastMath.compact($0) }),
+            CompareRow(label: "Комментарии", plan: "", fact: st?.comments.map { ForecastMath.compact($0) }),
+        ].filter { !$0.plan.isEmpty || $0.fact != nil }
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(rows, id: \.0) { r in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(r.0).font(Typo.inter(12, .medium, relativeTo: .caption)).foregroundStyle(Palette.ink3)
-                    Text(r.1).font(Typo.inter(16, .semibold))
+            ForEach(rows, id: \.label) { r in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(r.label).font(Typo.inter(12, .medium, relativeTo: .caption)).foregroundStyle(Palette.ink3)
+                    if let fact = r.fact {
+                        Text(fact).font(Typo.inter(16, .semibold))
+                            .foregroundStyle(r.better == true ? Palette.okInk : Palette.ink)
+                        if !r.plan.isEmpty {
+                            Text("прогноз \(r.plan)").font(Typo.inter(12, relativeTo: .caption)).foregroundStyle(Palette.ink3)
+                        }
+                    } else {
+                        Text(r.plan).font(Typo.inter(16, .semibold))
+                    }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.field, style: .continuous))
             }
         }
+    }
+
+    /// Факт лучше прогноза? Для пропусков лучше меньше.
+    static func better(plan: Double?, fact: Double?, lowerIsBetter: Bool = false) -> Bool? {
+        guard let plan, let fact else { return nil }
+        return lowerIsBetter ? fact < plan : fact > plan
     }
 
     private func factInput(scriptId: String) -> some View {
@@ -254,5 +283,36 @@ enum FactInput {
         let digits = text.filter(\.isNumber)
         guard let v = Double(digits), v > 0 else { return nil }
         return v
+    }
+}
+
+private struct CompareRow {
+    var label: String
+    var plan: String
+    var fact: String?
+    var better: Bool? = nil
+}
+
+/// «Сейчас 9 111 за 17 ч, прогноз на это время ≈ 4 950».
+private struct NowCard: View {
+    let fact: FactPoint
+    let expected: Double
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Сейчас, \(Int(fact.hours.rounded())) ч").font(Typo.inter(12, .medium, relativeTo: .caption)).foregroundStyle(Palette.ink3)
+                Text(ForecastMath.compact(fact.views)).font(Typo.inter(24, .bold))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Прогноз на это время").font(Typo.inter(12, .medium, relativeTo: .caption)).foregroundStyle(Palette.ink3)
+                Text("≈ \(ForecastMath.compact(expected))").font(Typo.inter(24, .bold)).foregroundStyle(Palette.ink2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }

@@ -48,6 +48,15 @@ struct NotionClient {
                            body: NotionWrite.selectBody(property: property, value: value))
     }
 
+    /// Новая строка в базе. Возвращает id созданной страницы.
+    @discardableResult
+    func createPage(dataSource: String, properties: [String: Any]) async throws -> String? {
+        let data = try await send("pages", method: "POST",
+                                  body: ["parent": ["type": "data_source_id", "data_source_id": dataSource],
+                                         "properties": properties])
+        return (try? JSONSerialization.jsonObject(with: data) as? JSON)?["id"] as? String
+    }
+
     /// Проверка ключа и доступа: один запрос к базе «Сценарии».
     func check() async throws {
         let data = try await send("data_sources/\(NotionConfig.scriptsDataSource)/query",

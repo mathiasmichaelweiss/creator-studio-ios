@@ -15,11 +15,8 @@ struct RecordScreen: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                CameraPreview(session: recorder.session).ignoresSafeArea()
-                // Кнопка на DJI Mic (и кнопки громкости iPhone): старт и стоп, как главная кнопка.
-                CaptureButtonListener { mainTap() }
-                    .frame(width: 1, height: 1)
-                    .allowsHitTesting(false)
+                // Кнопка на DJI Mic (и кнопки громкости iPhone): старт и пауза, как главная кнопка.
+                CameraPreview(session: recorder.session, onCaptureButton: { mainTap() }).ignoresSafeArea()
                 if settings.showSafeZone { SafeZoneOverlay().ignoresSafeArea() }
 
                 VStack(spacing: 0) {

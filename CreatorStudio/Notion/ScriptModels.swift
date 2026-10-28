@@ -68,7 +68,7 @@ struct Script: Codable, Equatable, Hashable, Identifiable {
 }
 
 enum ScriptStatus {
-    static let all = ["Готов к съёмке", "Идея", "Снято", "Опубликовано"]
+    static let all = ["Готов к съёмке", "В работе", "Идея", "Снято", "Опубликовано"]
     /// Порядок в списке: сначала то, что можно снимать.
     static func rank(_ s: String) -> Int { all.firstIndex(of: s) ?? all.count }
 }

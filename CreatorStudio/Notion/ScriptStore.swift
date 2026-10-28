@@ -66,7 +66,9 @@ final class ScriptStore: ObservableObject {
         var variants = variantPages.compactMap(NotionParser.variant(page:))
 
         for i in scripts.indices {
-            scripts[i].body.sections = NotionParser.sections(blocks: try await client.blocks(of: scripts[i].id))
+            // Тело страницы главнее поля «Текст»; пустое тело не стирает текст из поля.
+            let fromPage = NotionParser.sections(blocks: try await client.blocks(of: scripts[i].id))
+            if !fromPage.isEmpty { scripts[i].body.sections = fromPage }
         }
         for i in variants.indices {
             variants[i].variant.body.sections =

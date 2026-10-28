@@ -52,7 +52,7 @@ enum NotionParser {
             type: plainText(props["Тип"]),
             status: plainText(props["Статус"]),
             studioId: plainText(props["ID студии"]),
-            body: ScriptBody(hook: plainText(props["Хук"]), sections: [], cta: plainText(props["CTA"])),
+            body: ScriptBody(hook: plainText(props["Хук"]), sections: fieldSections(plainText(props["Текст"])), cta: plainText(props["CTA"])),
             variantIds: relationIds(props["Вариации"]),
             notionDate: dateStart(props["Дата"]),
             notionTime: plainText(props["Время"]).isEmpty ? nil : plainText(props["Время"])
@@ -70,6 +70,16 @@ enum NotionParser {
             body: ScriptBody(hook: plainText(props["Хук"]), sections: [], cta: plainText(props["CTA"]))
         )
         return (scriptId, v)
+    }
+
+    /// Поле «Текст» базы: абзацы через пустую строку становятся частями.
+    /// Нужно, когда текст записан в поле, а не в тело страницы.
+    static func fieldSections(_ text: String) -> [ScriptSection] {
+        text.replacingOccurrences(of: "\r\n", with: "\n")
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { ScriptSection(label: nil, text: $0) }
     }
 
     // MARK: Текст страницы

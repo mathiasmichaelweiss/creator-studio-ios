@@ -192,6 +192,21 @@ final class Recorder: NSObject, ObservableObject {
         }
     }
 
+    /// Выбросить текущий дубль без сохранения: файл удаляется, состояние снова «готов».
+    func discard() {
+        guard state == .recording || state == .paused else { return }
+        state = .finishing
+        dataQueue.async { [weak self] in
+            guard let self else { return }
+            self.isWriting = false
+            self.writer?.cancelWriting()
+            if let url = self.outputURL { try? FileManager.default.removeItem(at: url) }
+            self.outputURL = nil
+            self.reset()
+            DispatchQueue.main.async { self.markers = []; self.elapsed = 0 }
+        }
+    }
+
     func clearSavedMarkers() { lastSavedMarkers = nil }
 
     private func reset() {

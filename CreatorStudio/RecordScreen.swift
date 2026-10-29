@@ -11,6 +11,11 @@ struct RecordScreen: View {
     @State private var showSettings = false
     @State private var permissionDenied = false
     @State private var cardIndex = 0
+    @State private var askRestart = false
+    /// После остановки сразу начать новый дубль (ждём, пока запись допишется).
+    @State private var restartWhenIdle = false
+    /// Дубль сохранён при «начать заново»: окно «Сохранено» не показываем, чтобы не мешать новой записи.
+    @State private var quietSave = false
 
     var body: some View {
         GeometryReader { geo in
@@ -57,6 +62,22 @@ struct RecordScreen: View {
         .alert("Нужен доступ к камере и микрофону", isPresented: $permissionDenied) {
             Button("Открыть настройки") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
             Button("Позже", role: .cancel) {}
+        }
+        .confirmationDialog("Начать запись заново?", isPresented: $askRestart, titleVisibility: .visible) {
+            Button("Удалить дубль и начать заново", role: .destructive) { restart(save: false) }
+            Button("Сохранить дубль и начать новый") { restart(save: true) }
+            Button("Продолжить этот дубль", role: .cancel) {}
+        } message: {
+            Text("Текст вернётся в начало, новая запись начнётся после отсчёта.")
+        }
+        .onChange(of: recorder.lastSavedMarkers) { _, m in
+            if m != nil, quietSave { quietSave = false; recorder.clearSavedMarkers() }
+        }
+        .onChange(of: recorder.state) { _, s in
+            if s == .idle, restartWhenIdle {
+                restartWhenIdle = false
+                mainTap()
+            }
         }
         .persistentSystemOverlays(.hidden)
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
@@ -111,8 +132,15 @@ struct RecordScreen: View {
                     .background(Theme.panel, in: Capsule())
             }
             HStack {
-                circleButton("text.alignleft", label: "Студия: сценарии, план, прогнозы") { showScript = true }
-                    .disabled(recorder.state != .idle)
+                if recorder.state == .recording || recorder.state == .paused {
+                    circleButton("arrow.counterclockwise", label: "Начать заново") {
+                        if recorder.state == .recording { recorder.pause(); engine.stop(); voice.stop() }
+                        askRestart = true
+                    }
+                } else {
+                    circleButton("text.alignleft", label: "Студия: сценарии, план, прогнозы") { showScript = true }
+                        .disabled(recorder.state != .idle)
+                }
                 Spacer()
                 circleButton("arrow.uturn.backward", label: "Повтор") { recorder.markRetake() }
                     .disabled(recorder.state == .idle)
@@ -198,6 +226,16 @@ struct RecordScreen: View {
         engine.stop()
         voice.stop()
         recorder.stop()
+    }
+
+    /// Новый дубль: текущий удалить или сохранить, текст и карточки в начало, затем запись с отсчётом.
+    private func restart(save: Bool) {
+        engine.stop(); voice.stop()
+        engine.reset(); voice.resetPosition()
+        cardIndex = 0
+        restartWhenIdle = true
+        quietSave = save
+        if save { recorder.stop() } else { recorder.discard() }
     }
 
     private func runCountdown(then action: @escaping () -> Void) {

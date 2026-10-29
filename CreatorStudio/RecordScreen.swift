@@ -27,8 +27,9 @@ struct RecordScreen: View {
                         CardsView(index: $cardIndex, height: geo.size.height * 0.34)
                             .padding(.horizontal, 16)
                             .padding(.top, 54)
+                            .padding(.bottom, settings.cardExpanded ? 12 : 0)
                     }
-                    Spacer()
+                    if settings.mode == .prompter || !settings.cardExpanded { Spacer() }
                     controls
                 }
 

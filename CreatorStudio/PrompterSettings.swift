@@ -22,6 +22,8 @@ final class PrompterSettings: ObservableObject {
     @AppStorage("cardOpacity") var cardOpacity: Double = 0.85
     /// Карточка целиком, без деления на абзацы (инфоповод на экране при записи).
     @AppStorage("wholeCard") var wholeCard: Bool = false
+    /// Карточка растянута по высоте до кнопок внизу.
+    @AppStorage("cardExpanded") var cardExpanded: Bool = false
 
     /// Итоговый размер текста суфлёра и карточек с учётом «Обычный / Крупный».
     var prompterFontSize: Double { fontSize * textScale.prompterFactor }

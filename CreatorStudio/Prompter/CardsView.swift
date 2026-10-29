@@ -24,6 +24,14 @@ struct CardsView: View {
                     .background(Palette.chip, in: Capsule())
                 Spacer()
                 ProgressDots(count: list.count, current: i)
+                Button { withAnimation(.easeOut(duration: 0.25)) { settings.cardExpanded.toggle() } } label: {
+                    Image(systemName: settings.cardExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(ink2)
+                        .frame(width: 34, height: 34)
+                        .background(Palette.chip, in: Circle())
+                }
+                .accessibilityLabel(settings.cardExpanded ? "Свернуть карточку" : "Развернуть карточку на всю высоту")
                 Button { showLook = true } label: {
                     Image(systemName: "gearshape.fill").font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(ink2)
@@ -53,7 +61,8 @@ struct CardsView: View {
             }
         }
         .padding(18)
-        .frame(height: height)
+        .frame(height: settings.cardExpanded ? nil : height)
+        .frame(maxHeight: settings.cardExpanded ? .infinity : nil)
         .background(cardFill, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 30).onEnded { v in

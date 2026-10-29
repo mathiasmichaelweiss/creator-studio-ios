@@ -17,6 +17,13 @@ enum Paragraphs {
         return byLine.isEmpty ? [] : (byLine.count > 1 ? byLine : byBlank)
     }
 
+    /// Карточки для режима «Карточки»: целиком одной карточкой или по абзацам.
+    static func cards(_ text: String, whole: Bool) -> [String] {
+        guard whole else { return split(text) }
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? [] : [t]
+    }
+
     /// Индекс, зажатый в границы списка.
     static func clamp(_ index: Int, count: Int) -> Int {
         guard count > 0 else { return 0 }

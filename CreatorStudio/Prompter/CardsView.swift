@@ -8,7 +8,7 @@ struct CardsView: View {
     let height: CGFloat
     @State private var showLook = false
 
-    private var cards: [String] { Paragraphs.split(settings.script) }
+    private var cards: [String] { Paragraphs.cards(settings.script, whole: settings.wholeCard) }
 
     var body: some View {
         let list = cards
@@ -17,7 +17,7 @@ struct CardsView: View {
 
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(list.isEmpty ? "Нет текста" : "Карточка \(i + 1) из \(list.count)")
+                Text(list.isEmpty ? "Нет текста" : (settings.wholeCard ? "Инфоповод" : "Карточка \(i + 1) из \(list.count)"))
                     .font(Typo.inter(13, .semibold, relativeTo: .footnote))
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .foregroundStyle(ink2)

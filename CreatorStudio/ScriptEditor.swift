@@ -12,7 +12,7 @@ struct ScriptEditor: View {
                 .font(Typo.inter(14, relativeTo: .footnote))
                 .foregroundStyle(Palette.ink2)
             TextEditor(text: $settings.script)
-                .onChange(of: settings.script) { _, _ in settings.scriptTitle = "" }
+                .onChange(of: settings.script) { _, _ in settings.scriptTitle = ""; settings.wholeCard = false }
                 .font(Typo.inter(17))
                 .foregroundStyle(Palette.ink)
                 .scrollContentBackground(.hidden)

@@ -20,6 +20,8 @@ final class PrompterSettings: ObservableObject {
     /// Подложка карточек: цвет и прозрачность (шестерёнка на карточке).
     @AppStorage("cardTone") var cardTone: CardTone = .dark
     @AppStorage("cardOpacity") var cardOpacity: Double = 0.85
+    /// Карточка целиком, без деления на абзацы (инфоповод на экране при записи).
+    @AppStorage("wholeCard") var wholeCard: Bool = false
 
     /// Итоговый размер текста суфлёра и карточек с учётом «Обычный / Крупный».
     var prompterFontSize: Double { fontSize * textScale.prompterFactor }

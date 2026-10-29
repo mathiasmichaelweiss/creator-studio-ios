@@ -63,6 +63,7 @@ struct ScriptPicker: View {
             .navigationDestination(for: Script.self) { script in
                 ScriptDetail(script: script) { text, title in
                     settings.script = text
+                    settings.wholeCard = false
                     settings.scriptTitle = title
                     dismiss()
                 }

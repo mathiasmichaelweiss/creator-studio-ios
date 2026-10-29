@@ -14,6 +14,14 @@ struct NewsItem: Codable, Equatable, Hashable, Identifiable {
     var urgency: String = ""
     var potential: Double? = nil
     var status: String = ""
+
+    /// Весь текст для карточки на экране записи: заголовок, суть, почему важно.
+    var cardText: String {
+        [title, summary, why.isEmpty ? "" : "Почему важно: \(why)"]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+    }
 }
 
 enum NewsParser {
@@ -158,6 +166,17 @@ struct NewsSection: View {
 private struct NewsCard: View {
     let item: NewsItem
     @EnvironmentObject var news: NewsStore
+    @EnvironmentObject var settings: PrompterSettings
+    @Environment(\.dismiss) private var dismiss
+
+    /// Инфоповод целиком одной карточкой на экран записи, с теми же настройками вида.
+    private func showOnScreen() {
+        settings.script = item.cardText
+        settings.scriptTitle = item.title
+        settings.wholeCard = true
+        settings.mode = .cards
+        dismiss()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -173,6 +192,10 @@ private struct NewsCard: View {
             }
             if !item.why.isEmpty { Labeled(label: "Почему важно", text: item.why) }
             if !item.idea.isEmpty { Labeled(label: "Идея ролика", text: item.idea) }
+            Button { showOnScreen() } label: {
+                Label("На экран записи", systemImage: "rectangle.on.rectangle").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PillButtonStyle())
             HStack(spacing: 8) {
                 if let u = URL(string: item.source), !item.source.isEmpty {
                     Link("Источник", destination: u).buttonStyle(PillButtonStyle(prominent: false))
@@ -192,6 +215,8 @@ private struct NewsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.surface, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(Palette.line))
+        .contentShape(Rectangle())
+        .onTapGesture { showOnScreen() }
     }
 }
 

@@ -21,6 +21,8 @@ final class SpeechFollower: ObservableObject {
     @Published private(set) var status: Status = .off
     /// Позиция (UTF-16) последнего сказанного слова в тексте сценария.
     @Published private(set) var location: Int?
+    /// Сказано последнее слово текста (для автоперелистывания карточек).
+    @Published private(set) var finished = false
 
     private var aligner = ScriptAligner(text: "")
     private var alignedText = ""
@@ -39,16 +41,18 @@ final class SpeechFollower: ObservableObject {
     }
 
     /// Новый текст сценария: позиция сбрасывается в начало.
-    func load(script: String) {
-        guard script != alignedText else { return }
+    func load(script: String, lookAhead: Int = ScriptAligner.lookAhead) {
+        guard script != alignedText || aligner.lookAhead != lookAhead else { return }
         alignedText = script
-        aligner = ScriptAligner(text: script)
+        aligner = ScriptAligner(text: script, lookAhead: lookAhead)
         location = nil
+        finished = false
     }
 
     func resetPosition() {
         aligner.reset()
         location = nil
+        finished = false
     }
 
     func start() async {
@@ -95,6 +99,7 @@ final class SpeechFollower: ObservableObject {
         guard gen == generation else { return }
         if let text, let index = aligner.consume(transcript: text) {
             location = aligner.words[index].location
+            finished = aligner.isAtEnd
         }
         // Распознавание само заканчивается после паузы или лимита: запускаем заново с того же места.
         if done, shouldListen, let recognizer {

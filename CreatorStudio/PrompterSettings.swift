@@ -24,6 +24,8 @@ final class PrompterSettings: ObservableObject {
     @AppStorage("wholeCard") var wholeCard: Bool = false
     /// Карточка растянута по высоте до кнопок внизу.
     @AppStorage("cardExpanded") var cardExpanded: Bool = false
+    /// Карточки: слушать голос, подсвечивать сказанное и листать, когда договорил.
+    @AppStorage("cardsByVoice") var cardsByVoice: Bool = true
 
     /// Итоговый размер текста суфлёра и карточек с учётом «Обычный / Крупный».
     var prompterFontSize: Double { fontSize * textScale.prompterFactor }

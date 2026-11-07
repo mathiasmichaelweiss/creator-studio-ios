@@ -6,6 +6,8 @@ struct CardsView: View {
     @EnvironmentObject var settings: PrompterSettings
     @Binding var index: Int
     let height: CGFloat
+    /// Позиция последнего сказанного слова в текущей карточке (UTF-16), если карточки идут за голосом.
+    var spoken: Int? = nil
     @State private var showLook = false
 
     private var cards: [String] { Paragraphs.cards(settings.script, whole: settings.wholeCard) }
@@ -44,7 +46,8 @@ struct CardsView: View {
                 }
             }
             ScrollView {
-                Text(list.isEmpty ? "Вставь сценарий кнопкой слева внизу. Абзацы раздели пустой строкой." : list[i])
+                Text(list.isEmpty ? AttributedString("Вставь сценарий кнопкой слева внизу. Абзацы раздели пустой строкой.")
+                                  : CardHighlight.attributed(list[i], spoken: spoken, dim: ink.opacity(0.4)))
                     .font(Typo.interFixed(fs, .semibold))
                     .foregroundStyle(ink)
                     .lineSpacing(fs * 0.2)
@@ -97,6 +100,28 @@ struct CardsView: View {
     }
 }
 
+/// Сказанная часть карточки приглушается, несказанная остаётся яркой.
+enum CardHighlight {
+    /// Конец слова, начинающегося в позиции location (UTF-16).
+    static func spokenEnd(_ text: String, location: Int) -> Int {
+        let ns = text as NSString
+        guard location >= 0, location < ns.length else { return ns.length }
+        let rest = NSRange(location: location, length: ns.length - location)
+        let space = ns.rangeOfCharacter(from: .whitespacesAndNewlines, options: [], range: rest)
+        return space.location == NSNotFound ? ns.length : space.location
+    }
+
+    static func attributed(_ text: String, spoken: Int?, dim: Color) -> AttributedString {
+        var a = AttributedString(text)
+        guard let spoken else { return a }
+        let end = spokenEnd(text, location: spoken)
+        guard end > 0, let r = Range(NSRange(location: 0, length: end), in: text),
+              let ar = Range(r, in: a) else { return a }
+        a[ar].foregroundColor = dim
+        return a
+    }
+}
+
 /// Точки прогресса как под каруселью «Важное сегодня» на сайте.
 private struct ProgressDots: View {
     let count: Int
@@ -127,6 +152,14 @@ private struct CardLookPanel: View {
             }
             Slider(value: $settings.cardOpacity, in: CardLook.minOpacity...1)
                 .tint(Palette.brand)
+            Toggle(isOn: $settings.cardsByVoice) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Листать по голосу").font(Typo.inter(15, .semibold))
+                    Text("Сказанное гаснет, в конце карточки следующая").font(Typo.inter(12, .regular, relativeTo: .footnote))
+                        .foregroundStyle(Palette.ink3)
+                }
+            }
+            .tint(Palette.brand)
         }
         .padding(18)
         .frame(width: 280)

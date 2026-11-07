@@ -207,4 +207,23 @@ final class ScriptStoreTests: XCTestCase {
         ], cta: "Пиши «ТЕКСТЫ» в комментариях.")
         XCTAssertEqual(Paragraphs.split(b.prompterText).count, 3, "хук и призыв не повторяются")
     }
+
+    func testCardAlignerSmallWindowDoesNotJumpFar() {
+        let text = "Это первая фраза карточки. " + String(repeating: "слово ", count: 20) + "Германия конец"
+        var a = ScriptAligner(text: text, lookAhead: 12)
+        XCTAssertNil(a.consume(transcript: "Германия конец"), "конец карточки за окном не ловится")
+        XCTAssertFalse(a.isAtEnd)
+    }
+
+    func testCardAlignerReachesEnd() {
+        var a = ScriptAligner(text: "Я уехал в Германию семь лет назад", lookAhead: 12)
+        _ = a.consume(transcript: "я уехал в германию семь лет назад")
+        XCTAssertTrue(a.isAtEnd)
+    }
+
+    func testCardHighlightSpokenEnd() {
+        let t = "Я уехал в Германию"
+        XCTAssertEqual(CardHighlight.spokenEnd(t, location: 2), 7, "подсветка до конца слова «уехал»")
+        XCTAssertEqual(CardHighlight.spokenEnd(t, location: 10), (t as NSString).length)
+    }
 }

@@ -29,7 +29,8 @@ struct RecordScreen: View {
                         PrompterView(engine: engine, voice: voice, height: geo.size.height * 0.30)
                             .padding(.horizontal, 28)
                     } else {
-                        CardsView(index: $cardIndex, height: geo.size.height * 0.34)
+                        CardsView(index: $cardIndex, height: geo.size.height * 0.34,
+                                  spoken: cardsByVoice ? voice.location : nil)
                             .padding(.horizontal, 16)
                             .padding(.top, 54)
                             .padding(.bottom, settings.cardExpanded ? 12 : 0)
@@ -51,6 +52,8 @@ struct RecordScreen: View {
         }
         .task { await setup() }
         .onChange(of: settings.speed) { _, v in engine.speed = v }
+        .onChange(of: cardIndex) { _, _ in if cardsByVoice { loadVoice() } }
+        .onChange(of: voice.finished) { _, done in if done, cardsByVoice { advanceAfterPause() } }
         .sheet(isPresented: $showScript) { ScriptPicker() }
         .sheet(isPresented: $showSettings) { SettingsSheet() }
         .alert("Ошибка", isPresented: Binding(get: { recorder.lastError != nil }, set: { if !$0 { recorder.lastError = nil } })) {
@@ -198,14 +201,13 @@ struct RecordScreen: View {
         case .idle:
             engine.reset(); engine.speed = settings.speed
             engine.followsVoice = usingVoice
-            voice.load(script: settings.script)
-            voice.resetPosition()
-            runCountdown { recorder.start(); if prompting { engine.start(); startVoice() } }
+            loadVoice()
+            runCountdown { recorder.start(); if prompting { engine.start() }; startVoice() }
         case .recording:
             // Одна кнопка: стоп записи и стоп текста одновременно.
             recorder.pause(); engine.stop(); voice.stop()
         case .paused:
-            runCountdown { recorder.resume(); if prompting { engine.start(); startVoice() } }
+            runCountdown { recorder.resume(); if prompting { engine.start() }; startVoice() }
         case .finishing:
             break
         }
@@ -214,8 +216,40 @@ struct RecordScreen: View {
     /// Текст едет только в режиме суфлёра. В карточках листаешь сам.
     private var prompting: Bool { settings.mode == .prompter }
 
-    /// Суфлёр едет за голосом, а не со скоростью.
-    private var usingVoice: Bool { prompting && settings.scrollMode == .voice }
+    /// Карточки идут за голосом (кроме инфоповода одной карточкой).
+    private var cardsByVoice: Bool { !prompting && settings.cardsByVoice && !settings.wholeCard }
+
+    /// Суфлёр или карточки идут за голосом.
+    private var usingVoice: Bool { (prompting && settings.scrollMode == .voice) || cardsByVoice }
+
+    private var cardList: [String] { Paragraphs.cards(settings.script, whole: settings.wholeCard) }
+
+    /// Окно поиска в карточке: маленькое, чтобы не перепрыгивать.
+    static let cardLookAhead = 12
+
+    /// Голос слушает весь сценарий (суфлёр) или только текущую карточку.
+    private func loadVoice() {
+        if cardsByVoice {
+            let list = cardList
+            let text = list.isEmpty ? "" : list[Paragraphs.clamp(cardIndex, count: list.count)]
+            voice.load(script: text, lookAhead: Self.cardLookAhead)
+        } else {
+            voice.load(script: settings.script)
+        }
+        voice.resetPosition()
+    }
+
+    /// Договорил карточку: пауза, затем следующая. Если за паузу заговорил дальше, ждём снова.
+    private func advanceAfterPause() {
+        let at = cardIndex
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard cardsByVoice, voice.finished, cardIndex == at, recorder.state == .recording,
+                  at < cardList.count - 1 else { return }
+            withAnimation(.easeOut(duration: 0.22)) { cardIndex = at + 1 }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
 
     private func startVoice() {
         guard usingVoice else { return }

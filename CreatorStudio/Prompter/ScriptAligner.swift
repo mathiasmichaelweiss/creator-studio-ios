@@ -18,12 +18,18 @@ struct ScriptAligner {
     static let tail = 4
     /// Насколько далеко вперёд можно «перепрыгнуть», если ты пропустил кусок.
     static let lookAhead = 80
+    /// Окно вперёд для этого текста. В карточках маленькое: внутри короткого абзаца далеко прыгать некуда.
+    let lookAhead: Int
     /// Насколько можно вернуться назад, если повторил фразу.
     static let lookBehind = 6
 
-    init(text: String) {
+    init(text: String, lookAhead: Int = ScriptAligner.lookAhead) {
         words = Self.tokenize(text)
+        self.lookAhead = lookAhead
     }
+
+    /// Сказано последнее слово текста.
+    var isAtEnd: Bool { !words.isEmpty && position >= words.count }
 
     mutating func reset(to index: Int = 0) { position = min(max(0, index), words.count) }
 
@@ -36,7 +42,7 @@ struct ScriptAligner {
         let need = k >= 2 ? 2 : 1
 
         let lo = max(0, position - Self.lookBehind)
-        let hi = min(words.count - 1, position + Self.lookAhead)
+        let hi = min(words.count - 1, position + lookAhead)
         guard lo <= hi else { return nil }
 
         var best: (index: Int, score: Int, distance: Int)?

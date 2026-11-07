@@ -28,11 +28,21 @@ struct ScriptBody: Codable, Equatable, Hashable {
     }
 
     /// Текст для суфлёра: абзацы через пустую строку, чтобы «Карточки» резали ровно по частям.
+    /// Если текст сценария уже начинается с хука или заканчивается призывом
+    /// (так бывает, когда в Notion текст записан целиком), они не повторяются.
     var prompterText: String {
-        ([hook] + sections.map(\.text) + [cta])
-            .map(\.trimmed)
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n\n")
+        let parts = sections.map(\.text.trimmed).filter { !$0.isEmpty }
+        let joined = ScriptBody.norm(parts.joined(separator: " "))
+        let h = hook.trimmed, c = cta.trimmed
+        var all = parts
+        if !h.isEmpty, !joined.hasPrefix(ScriptBody.norm(h)) { all.insert(h, at: 0) }
+        if !c.isEmpty, !joined.hasSuffix(ScriptBody.norm(c)) { all.append(c) }
+        return all.joined(separator: "\n\n")
+    }
+
+    /// Сравнение без регистра, пробелов и знаков препинания.
+    static func norm(_ s: String) -> String {
+        String(s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 }
 

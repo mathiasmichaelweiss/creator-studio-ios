@@ -198,4 +198,13 @@ final class ScriptStoreTests: XCTestCase {
         XCTAssertEqual(store.scripts, [s])
         XCTAssertEqual(store.lastSync, date)
     }
+
+    func testPrompterDoesNotDuplicateHookAndCta() {
+        let b = ScriptBody(hook: "Почему я уехал?", sections: [
+            ScriptSection(label: nil, text: "Почему я уехал? Расскажу."),
+            ScriptSection(label: nil, text: "Середина."),
+            ScriptSection(label: nil, text: "Пиши ТЕКСТЫ в комментариях")
+        ], cta: "Пиши «ТЕКСТЫ» в комментариях.")
+        XCTAssertEqual(Paragraphs.split(b.prompterText).count, 3, "хук и призыв не повторяются")
+    }
 }

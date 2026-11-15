@@ -166,12 +166,21 @@ final class ScriptStoreTests: XCTestCase {
         XCTAssertEqual(merged[0].variants, [v])
     }
 
-    func testMergeSortsReadyFirstThenByTitle() {
-        let merged = ScriptStore.merge(scripts: [
-            script("1", "Б", "Идея"), script("2", "Я", "Готов к съёмке"),
-            script("3", "А", "Идея"), script("4", "В", "Странный"), script("5", "Г", "Опубликовано"),
-        ], variants: [])
-        XCTAssertEqual(merged.map(\.title), ["Я", "А", "Б", "Г", "В"])
+    func testMergeSortsNewestFirstThenUndatedByTitle() {
+        var a = script("1", "Б", "Идея"); a.createdTime = "2026-11-01T10:00:00.000Z"
+        var b = script("2", "Я", "Готов к съёмке"); b.createdTime = "2026-11-15T17:00:00.000Z"
+        var c = script("3", "А", "Идея"); c.createdTime = "2026-10-20T09:00:00.000Z"
+        let d = script("4", "Г", "Опубликовано"), e = script("5", "В", "Идея")
+        let merged = ScriptStore.merge(scripts: [a, b, c, d, e], variants: [])
+        XCTAssertEqual(merged.map(\.title), ["Я", "Б", "А", "В", "Г"])
+    }
+
+    func testParserReadsCreatedTime() {
+        let page: [String: Any] = [
+            "id": "p1", "created_time": "2026-11-15T17:00:00.000Z",
+            "properties": ["Название": ["type": "title", "title": [["plain_text": "X"]]]],
+        ]
+        XCTAssertEqual(NotionParser.script(page: page)?.createdTime, "2026-11-15T17:00:00.000Z")
     }
 
     func testStatusFilter() {

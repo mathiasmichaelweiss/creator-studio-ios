@@ -147,11 +147,17 @@ enum NotionWrite {
 }
 
 extension ScriptStatus {
-    /// Порядок по статусу, внутри статуса по названию.
+    /// Новые сверху: по дате создания в Notion. Без даты (старый кэш) в конце, по названию.
     static func sorted(_ s: [Script]) -> [Script] {
-        s.sorted {
-            let a = rank($0.status), b = rank($1.status)
-            return a != b ? a < b : $0.title.localizedCompare($1.title) == .orderedAscending
+        s.sorted(by: newestFirst)
+    }
+
+    static func newestFirst(_ x: Script, _ y: Script) -> Bool {
+        switch (x.createdTime, y.createdTime) {
+        case let (a?, b?) where a != b: return a > b
+        case (.some, nil): return true
+        case (nil, .some): return false
+        default: return x.title.localizedCompare(y.title) == .orderedAscending
         }
     }
 }

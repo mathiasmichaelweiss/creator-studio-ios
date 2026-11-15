@@ -67,6 +67,8 @@ struct Script: Codable, Equatable, Hashable, Identifiable {
     var notionDate: String? = nil
     var notionTime: String? = nil
     var forecast: Forecast? = nil
+    /// Когда страница создана в Notion (ISO 8601). Для сортировки «новые сверху». Старый кэш без поля тоже читается.
+    var createdTime: String? = nil
 
     /// Вариация берёт хук и призыв основного текста, если своих нет.
     func body(for variant: ScriptVariant?) -> ScriptBody {

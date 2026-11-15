@@ -97,10 +97,7 @@ final class ScriptStore: ObservableObject {
                 result[i].variants.append(v.variant)
             }
         }
-        return result.sorted {
-            let a = ScriptStatus.rank($0.status), b = ScriptStatus.rank($1.status)
-            return a != b ? a < b : $0.title.localizedCompare($1.title) == .orderedAscending
-        }
+        return ScriptStatus.sorted(result)
     }
 
     /// Notion отдаёт id то с дефисами, то без.

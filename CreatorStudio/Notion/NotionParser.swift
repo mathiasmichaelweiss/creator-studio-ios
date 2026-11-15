@@ -55,7 +55,8 @@ enum NotionParser {
             body: ScriptBody(hook: plainText(props["Хук"]), sections: fieldSections(plainText(props["Текст"])), cta: plainText(props["CTA"])),
             variantIds: relationIds(props["Вариации"]),
             notionDate: dateStart(props["Дата"]),
-            notionTime: plainText(props["Время"]).isEmpty ? nil : plainText(props["Время"])
+            notionTime: plainText(props["Время"]).isEmpty ? nil : plainText(props["Время"]),
+            createdTime: page["created_time"] as? String
         )
     }
 

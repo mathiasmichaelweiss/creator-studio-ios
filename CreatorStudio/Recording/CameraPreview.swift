@@ -8,13 +8,15 @@ import SwiftUI
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     var onCaptureButton: (() -> Void)? = nil
+    /// Горизонтальный кадр показываем целиком (с полосами), вертикальный на весь экран.
+    var fit = false
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> PreviewView {
         let v = PreviewView()
         v.previewLayer.session = session
-        v.previewLayer.videoGravity = .resizeAspectFill
+        v.previewLayer.videoGravity = fit ? .resizeAspect : .resizeAspectFill
         v.isUserInteractionEnabled = true
         context.coordinator.onPress = onCaptureButton
         if #available(iOS 17.2, *) {
@@ -33,6 +35,7 @@ struct CameraPreview: UIViewRepresentable {
 
     func updateUIView(_ uiView: PreviewView, context: Context) {
         context.coordinator.onPress = onCaptureButton
+        uiView.previewLayer.videoGravity = fit ? .resizeAspect : .resizeAspectFill
     }
 
     final class Coordinator { var onPress: (() -> Void)? }

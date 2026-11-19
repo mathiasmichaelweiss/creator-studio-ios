@@ -211,7 +211,7 @@ final class Recorder: NSObject, ObservableObject {
         let landscapeOnScreen = orientation == .horizontal
         // Для iOS соотношение считается от сенсора. Сенсор лежит боком, поэтому по умолчанию наоборот.
         let wantSensorPortrait = aspectSwapped ? !landscapeOnScreen : landscapeOnScreen
-        let ratio: AVCaptureAspectRatio = wantSensorPortrait ? .ratio9x16 : .ratio16x9
+        let ratio: AVCaptureDevice.AspectRatio = wantSensorPortrait ? .ratio9x16 : .ratio16x9
         guard supported.contains(ratio) else { return }
         device.setDynamicAspectRatio(ratio, completionHandler: nil)
     }

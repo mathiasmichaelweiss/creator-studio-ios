@@ -25,6 +25,7 @@ struct RecordScreen: View {
                 CameraPreview(session: recorder.session, onCaptureButton: { mainTap() },
                               fit: recorder.options.orientation == .horizontal).ignoresSafeArea()
                 if settings.showSafeZone, recorder.options.orientation == .vertical { SafeZoneOverlay().ignoresSafeArea() }
+                if recorder.cropping { LandscapeGuide().ignoresSafeArea().allowsHitTesting(false) }
                 if recorder.options.showHistogram, !recorder.histogram.isEmpty {
                     VStack {
                         HStack { Spacer(); HistogramView(bins: recorder.histogram) }
@@ -385,5 +386,24 @@ private struct SavedSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Palette.bg)
         .presentationDetents([.medium])
+    }
+}
+
+/// Рамка 16:9 поверх превью: что попадёт в горизонтальное видео. Снаружи затемнено.
+private struct LandscapeGuide: View {
+    var body: some View {
+        GeometryReader { geo in
+            let h = geo.size.width * 9 / 16
+            let rect = CGRect(x: 0, y: (geo.size.height - h) / 2, width: geo.size.width, height: h)
+            ZStack {
+                Path { p in
+                    p.addRect(CGRect(origin: .zero, size: geo.size))
+                    p.addRect(rect)
+                }
+                .fill(Color.black.opacity(0.55), style: FillStyle(eoFill: true))
+                Path { p in p.addRect(rect) }
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            }
+        }
     }
 }

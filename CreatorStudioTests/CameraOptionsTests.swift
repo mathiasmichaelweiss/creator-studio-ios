@@ -52,4 +52,15 @@ final class CameraOptionsTests: XCTestCase {
         XCTAssertEqual(CameraMath.shutterTitle(nil), "Авто")
         XCTAssertEqual(CameraMath.whiteBalanceTitle(3200), "3200K")
     }
+
+    func testLandscapeCropFromTallFrame() {
+        let r = CameraMath.landscapeCrop(width: 3024, height: 4032)
+        XCTAssertEqual(r.w, 3024)
+        XCTAssertEqual(r.h, 1700)
+        XCTAssertEqual(r.y, (4032 - 1700) / 2)
+        XCTAssertEqual(r.x, 0)
+        XCTAssertTrue(FormatPicker.isTall(width: 4032, height: 3024))
+        XCTAssertTrue(FormatPicker.isTall(width: 3840, height: 3840))
+        XCTAssertFalse(FormatPicker.isTall(width: 3840, height: 2160))
+    }
 }

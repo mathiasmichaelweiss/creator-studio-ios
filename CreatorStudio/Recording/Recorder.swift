@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreImage
 import Photos
 import UIKit
 
@@ -17,6 +18,8 @@ final class Recorder: NSObject, ObservableObject {
     @Published private(set) var capabilities = CameraCapabilities()
     /// Гистограмма яркости (0…1), если включена.
     @Published private(set) var histogram: [Double] = []
+    /// Горизонталь вырезается из высокого кадра (если iOS не умеет 16:9 сам). Для рамки в превью.
+    @Published private(set) var cropping = false
 
     let session = AVCaptureSession()
 
@@ -42,6 +45,8 @@ final class Recorder: NSObject, ObservableObject {
     private var camera: AVCaptureDevice?
     /// Если iOS считает соотношение от сенсора, а не от экрана, меняем 16:9 и 9:16 местами.
     private var aspectSwapped = false
+    /// Сейчас стоит высокий формат (4:3 или квадрат) для вырезания горизонтали.
+    private var tallFormatActive = false
 
     // Наблюдение за кадрами: трогаем на dataQueue.
     private var frameCounter = 0
@@ -49,6 +54,10 @@ final class Recorder: NSObject, ObservableObject {
     private var desiredOrientation: CameraOptions.Orientation = .vertical
     private var aspectRetried = false
     private var histogramOn = false
+    /// Вырезать 16:9 из кадра перед записью.
+    private var cropLandscape = false
+    private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private let ciContext = CIContext(options: [.cacheIntermediates: false])
 
     /// Звук микрофона для суфлёра по голосу. Вызывается на очереди камеры.
     private let tapLock = NSLock()
@@ -79,7 +88,7 @@ final class Recorder: NSObject, ObservableObject {
             session.commitConfiguration(); return
         }
         session.addInput(videoIn)
-        let chosen = Self.applyBestFormat(to: camera)
+        let chosen = Self.applyBestFormat(to: camera, tall: false)
         self.camera = camera
 
         if let mic = AVCaptureDevice.default(for: .audio),
@@ -134,15 +143,34 @@ final class Recorder: NSObject, ObservableObject {
         c.supportsUltra = f.isVideoStabilizationModeSupported(.cinematicExtended)
             || f.isVideoStabilizationModeSupported(.cinematic)
         c.supportsPro = device.isExposureModeSupported(.custom)
-        if #available(iOS 26.0, *) {
-            c.supportsHorizontal = !f.supportedDynamicAspectRatios.isEmpty
-        }
+        c.supportsHorizontal = isDynamic(f) || device.formats.contains(where: isTallVideo)
         return c
     }
 
     /// Применить все настройки к камере. Только на sessionQueue.
     private func applyOptions(_ o: CameraOptions) {
         guard let device = camera else { return }
+
+        // Горизонталь без «динамического соотношения»: берём высокий формат и вырезаем 16:9 сами.
+        let useCrop = o.orientation == .horizontal && !Self.isDynamic(device.activeFormat)
+            && (tallFormatActive || device.formats.contains(where: Self.isTallVideo))
+        if useCrop != tallFormatActive {
+            session.beginConfiguration()
+            let chosen = Self.applyBestFormat(to: device, tall: useCrop)
+            session.commitConfiguration()
+            tallFormatActive = useCrop
+            if let chosen {
+                let d = CMVideoFormatDescriptionGetDimensions(chosen.format.formatDescription)
+                let fps = chosen.fps
+                DispatchQueue.main.async {
+                    self.formatDescription = "\(d.width)×\(d.height) · \(Int(fps)) fps"
+                    self.capabilities.fps = fps
+                }
+            }
+        }
+        let cropNow = tallFormatActive
+        dataQueue.async { self.cropLandscape = cropNow }
+        DispatchQueue.main.async { self.cropping = cropNow }
         let format = device.activeFormat
 
         // Center Stage: флаг общий для приложения, управляем им сами.
@@ -233,10 +261,15 @@ final class Recorder: NSObject, ObservableObject {
         frameCounter += 1
         let w = CVPixelBufferGetWidth(px), h = CVPixelBufferGetHeight(px)
         if !isWriting {
-            videoSize = CGSize(width: w, height: h)
+            if cropLandscape {
+                let r = CameraMath.landscapeCrop(width: w, height: h)
+                videoSize = CGSize(width: r.w, height: r.h)
+            } else {
+                videoSize = CGSize(width: w, height: h)
+            }
             framesSinceAspect += 1
             // Через секунду кадр всё ещё не той ориентации: значит iOS считает соотношение наоборот.
-            if framesSinceAspect == 60, !aspectRetried,
+            if framesSinceAspect == 60, !aspectRetried, !cropLandscape,
                !CameraMath.matches(desiredOrientation, width: w, height: h) {
                 aspectRetried = true
                 let wanted = desiredOrientation
@@ -266,12 +299,14 @@ final class Recorder: NSObject, ObservableObject {
 
     /// Лучший видеоформат 16:9 фронтальной камеры: сначала максимум fps (до 60), потом разрешение.
     /// Фотоформаты 4:3 (например 4032×3024) не берём: они не дают вертикальное видео под Reels.
-    private static func applyBestFormat(to device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, fps: Double)? {
+    private static func applyBestFormat(to device: AVCaptureDevice, tall: Bool) -> (format: AVCaptureDevice.Format, fps: Double)? {
         // iPhone 17/18: форматы с «динамическим соотношением» умеют и 9:16, и 16:9. Если такие есть, берём их.
         let dynamicOnly = device.formats.contains(where: isDynamic)
         let candidates = device.formats.compactMap { f -> (AVCaptureDevice.Format, Int32, Double)? in
             let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
-            if dynamicOnly {
+            if tall {
+                guard isTallVideo(f) else { return nil }
+            } else if dynamicOnly {
                 guard isDynamic(f) else { return nil }
             } else {
                 guard FormatPicker.isSixteenByNine(width: d.width, height: d.height) else { return nil }
@@ -290,6 +325,13 @@ final class Recorder: NSObject, ObservableObject {
             device.unlockForConfiguration()
             return (best.0, best.2)
         } catch { return nil }
+    }
+
+    /// Высокий видеоформат (4:3 или квадрат) от 30 fps: из него вырезается горизонталь 16:9.
+    private static func isTallVideo(_ f: AVCaptureDevice.Format) -> Bool {
+        let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
+        let maxFPS = f.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
+        return FormatPicker.isTall(width: d.width, height: d.height) && maxFPS >= 30
     }
 
     private static func isDynamic(_ f: AVCaptureDevice.Format) -> Bool {
@@ -321,9 +363,17 @@ final class Recorder: NSObject, ObservableObject {
                 let aIn = AVAssetWriterInput(mediaType: .audio, outputSettings: aSettings)
                 aIn.expectsMediaDataInRealTime = true
                 guard w.canAdd(vIn), w.canAdd(aIn) else { throw RecorderError.writerSetup }
+                var ad: AVAssetWriterInputPixelBufferAdaptor?
+                if self.cropLandscape {
+                    ad = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: vIn, sourcePixelBufferAttributes: [
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                        kCVPixelBufferWidthKey as String: Int(self.videoSize.width),
+                        kCVPixelBufferHeightKey as String: Int(self.videoSize.height)
+                    ])
+                }
                 w.add(vIn); w.add(aIn)
                 guard w.startWriting() else { throw w.error ?? RecorderError.writerSetup }
-                self.writer = w; self.videoInput = vIn; self.audioInput = aIn
+                self.writer = w; self.videoInput = vIn; self.audioInput = aIn; self.adaptor = ad
                 self.timeline = PausableTimeline(); self.sessionStarted = false; self.lastVideoPTS = .invalid
                 self.outputURL = url; self.isWriting = true
                 DispatchQueue.main.async { self.markers = []; self.elapsed = 0; self.state = .recording }
@@ -396,7 +446,7 @@ final class Recorder: NSObject, ObservableObject {
     func clearSavedMarkers() { lastSavedMarkers = nil }
 
     private func reset() {
-        writer = nil; videoInput = nil; audioInput = nil; sessionStarted = false
+        writer = nil; videoInput = nil; audioInput = nil; adaptor = nil; sessionStarted = false
         DispatchQueue.main.async { self.state = .idle }
     }
 
@@ -437,6 +487,17 @@ extension Recorder: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudio
             fileStart = mapped
             sessionStarted = true
         }
+        if isVideo, let ad = adaptor {
+            // Горизонталь: вырезаем 16:9 из высокого кадра.
+            if let v = videoInput, v.isReadyForMoreMediaData, mapped > lastVideoPTS || !lastVideoPTS.isValid,
+               let src = CMSampleBufferGetImageBuffer(sampleBuffer), let pool = ad.pixelBufferPool,
+               let px = cropped(src, pool: pool) {
+                ad.append(px, withPresentationTime: mapped); lastVideoPTS = mapped
+                let seconds = CMTimeSubtract(mapped, fileStart).seconds
+                DispatchQueue.main.async { self.elapsed = seconds }
+            }
+            return
+        }
         guard let retimed = Self.retime(sampleBuffer, to: mapped) else { return }
 
         if isVideo {
@@ -448,6 +509,19 @@ extension Recorder: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudio
         } else if let a = audioInput, a.isReadyForMoreMediaData {
             a.append(retimed)
         }
+    }
+
+    /// Центральный кусок 16:9 из высокого кадра.
+    private func cropped(_ src: CVPixelBuffer, pool: CVPixelBufferPool) -> CVPixelBuffer? {
+        let r = CameraMath.landscapeCrop(width: CVPixelBufferGetWidth(src), height: CVPixelBufferGetHeight(src))
+        var out: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out)
+        guard let out else { return nil }
+        let image = CIImage(cvPixelBuffer: src)
+            .cropped(to: CGRect(x: r.x, y: r.y, width: r.w, height: r.h))
+            .transformed(by: CGAffineTransform(translationX: -CGFloat(r.x), y: -CGFloat(r.y)))
+        ciContext.render(image, to: out)
+        return out
     }
 
     /// Сдвигает все тайминги буфера так, чтобы первый сэмпл начинался в `pts`.

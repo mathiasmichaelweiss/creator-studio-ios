@@ -22,8 +22,10 @@ struct CameraSheet: View {
                 }
 
                 group("Ориентация", available: caps.supportsHorizontal && idle,
-                      hint: !caps.supportsHorizontal ? "Нужен iPhone 17 или новее и iOS 26."
-                          : idle ? "Горизонтальное видео, а телефон держишь вертикально."
+                      hint: !caps.supportsHorizontal ? "Камера не отдаёт ни 16:9 сбоку, ни высокий кадр, из которого его можно вырезать."
+                          : idle ? (recorder.cropping
+                                    ? "Горизонтальное видео, телефон держишь вертикально. Рамка на экране: что попадёт в кадр."
+                                    : "Горизонтальное видео, а телефон держишь вертикально.")
                           : "Меняется между дублями.") {
                     ChipPicker(options: CameraOptions.Orientation.allCases, selection: bind(\.orientation)) { $0.title }
                 }

@@ -8,6 +8,13 @@ enum FormatPicker {
         return abs(r - 16.0 / 9.0) < 0.02
     }
 
+    /// 4:3 или квадрат: из такого кадра можно вырезать горизонталь 16:9 во всю ширину.
+    static func isTall(width: Int32, height: Int32) -> Bool {
+        guard width > 0, height > 0 else { return false }
+        let r = Double(max(width, height)) / Double(min(width, height))
+        return r < 1.4
+    }
+
     /// Сравнение (fps, пиксели): важнее fps, при равном fps больше пикселей.
     static func isWorse(_ a: (fps: Double, pixels: Int32), than b: (fps: Double, pixels: Int32)) -> Bool {
         if a.fps != b.fps { return a.fps < b.fps }

@@ -108,6 +108,17 @@ enum CameraMath {
         return counts.map { Double($0) / Double(peak) }
     }
 
+    /// Центральный кусок 16:9 во всю ширину кадра (стороны чётные, для кодека).
+    static func landscapeCrop(width: Int, height: Int) -> (x: Int, y: Int, w: Int, h: Int) {
+        var w = width & ~1
+        var h = (w * 9 / 16) & ~1
+        if h > height {
+            h = height & ~1
+            w = (h * 16 / 9) & ~1
+        }
+        return ((width - w) / 2, (height - h) / 2, w, h)
+    }
+
     /// Кадр уже в нужной ориентации?
     static func matches(_ orientation: CameraOptions.Orientation, width: Int, height: Int) -> Bool {
         orientation == .horizontal ? width > height : height >= width

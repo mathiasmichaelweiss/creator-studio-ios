@@ -9,6 +9,7 @@ struct RecordScreen: View {
     @State private var countdown: Int?
     @State private var showScript = false
     @State private var showSettings = false
+    @State private var showCamera = false
     @State private var permissionDenied = false
     @State private var cardIndex = 0
     @State private var askRestart = false
@@ -21,8 +22,19 @@ struct RecordScreen: View {
         GeometryReader { geo in
             ZStack {
                 // Кнопка на DJI Mic (и кнопки громкости iPhone): старт и пауза, как главная кнопка.
-                CameraPreview(session: recorder.session, onCaptureButton: { mainTap() }).ignoresSafeArea()
-                if settings.showSafeZone { SafeZoneOverlay().ignoresSafeArea() }
+                CameraPreview(session: recorder.session, onCaptureButton: { mainTap() },
+                              fit: recorder.options.orientation == .horizontal).ignoresSafeArea()
+                if settings.showSafeZone, recorder.options.orientation == .vertical { SafeZoneOverlay().ignoresSafeArea() }
+                if recorder.cropping { LandscapeGuide().ignoresSafeArea().allowsHitTesting(false) }
+                if recorder.options.showHistogram, !recorder.histogram.isEmpty {
+                    VStack {
+                        HStack { Spacer(); HistogramView(bins: recorder.histogram) }
+                        Spacer()
+                    }
+                    .padding(.top, geo.size.height * 0.36)
+                    .padding(.trailing, 16)
+                    .allowsHitTesting(false)
+                }
 
                 VStack(spacing: 0) {
                     if settings.mode == .prompter {
@@ -56,6 +68,7 @@ struct RecordScreen: View {
         .onChange(of: voice.finished) { _, done in if done, cardsByVoice { advanceAfterPause() } }
         .sheet(isPresented: $showScript) { ScriptPicker() }
         .sheet(isPresented: $showSettings) { SettingsSheet() }
+        .sheet(isPresented: $showCamera) { CameraSheet(recorder: recorder) }
         .alert("Ошибка", isPresented: Binding(get: { recorder.lastError != nil }, set: { if !$0 { recorder.lastError = nil } })) {
             Button("Ок", role: .cancel) {}
         } message: { Text(recorder.lastError ?? "") }
@@ -128,11 +141,27 @@ struct RecordScreen: View {
                         .background(Theme.panel, in: Capsule())
                 }
                 Spacer()
-                Text(recorder.formatDescription)
-                    .font(Typo.inter(12, .medium))
+                if recorder.capabilities.supportsWide, !recorder.options.centerStage {
+                    Button { toggleWide() } label: {
+                        Image(systemName: recorder.options.framing == .wide
+                              ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 28)
+                            .foregroundStyle(recorder.options.framing == .wide ? Palette.btnInk : Palette.ink)
+                            .background(recorder.options.framing == .wide ? AnyShapeStyle(Palette.btn) : AnyShapeStyle(Theme.panel), in: Capsule())
+                    }
+                    .accessibilityLabel(recorder.options.framing == .wide ? "Обычный кадр" : "Широкий кадр")
+                }
+                Button { showCamera = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "camera.aperture").font(.system(size: 12, weight: .semibold))
+                        Text(recorder.formatDescription).font(Typo.inter(12, .medium))
+                    }
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .foregroundStyle(Palette.ink2)
                     .background(Theme.panel, in: Capsule())
+                }
+                .accessibilityLabel("Настройки камеры")
             }
             HStack {
                 if recorder.state == .recording || recorder.state == .paused {
@@ -195,6 +224,12 @@ struct RecordScreen: View {
     }
 
     // MARK: Логика
+
+    private func toggleWide() {
+        var o = recorder.options
+        o.framing = o.framing == .wide ? .normal : .wide
+        recorder.update(o)
+    }
 
     private func mainTap() {
         switch recorder.state {
@@ -351,5 +386,24 @@ private struct SavedSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Palette.bg)
         .presentationDetents([.medium])
+    }
+}
+
+/// Рамка 16:9 поверх превью: что попадёт в горизонтальное видео. Снаружи затемнено.
+private struct LandscapeGuide: View {
+    var body: some View {
+        GeometryReader { geo in
+            let h = geo.size.width * 9 / 16
+            let rect = CGRect(x: 0, y: (geo.size.height - h) / 2, width: geo.size.width, height: h)
+            ZStack {
+                Path { p in
+                    p.addRect(CGRect(origin: .zero, size: geo.size))
+                    p.addRect(rect)
+                }
+                .fill(Color.black.opacity(0.55), style: FillStyle(eoFill: true))
+                Path { p in p.addRect(rect) }
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            }
+        }
     }
 }
